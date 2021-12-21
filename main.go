@@ -27,10 +27,12 @@ type ChatRat struct {
 	botName         string
 	ignoredUsers    []string
 	ignoredUserFile string
-	chatDelay       []string
-	chatTrigger     time.Timer
 
+	chatDelay    []string
+	delayChanged bool
+	chatTrigger  time.Timer
 	lastGoodTime time.Duration //The last time that was properly parsed. This shouldn't have to be used, but if the error checking fails for some reason, well it'll keep things running.
+
 }
 
 func main() {
@@ -51,12 +53,14 @@ func main() {
 	rat.trustedUserFile = *trustFile
 	rat.ignoredUserFile = *ignoreFile
 	rat.commandStarter = *commandStarter
+	rat.chatDelay = make([]string, 1)
+	rat.chatDelay[0] = "10s"
 
-	// or client := twitch.NewAnonymousClient() for an anonymous user (no write capabilities)
-	fmt.Println(rat.botName + " " + rat.oauth + " " + rat.streamName)
+	rat.lastGoodTime = 10 * time.Second
+
 	client := twitch.NewClient(rat.botName, rat.oauth)
 	rat.client = client
-	client.OnPrivateMessage(func(message twitch.PrivateMessage) {
+	rat.client.OnPrivateMessage(func(message twitch.PrivateMessage) {
 		if message.User.Name != "chatrat_" {
 			rat.messageParser(message)
 		}
@@ -66,9 +70,13 @@ func main() {
 	//Setting up the stuff for special users
 	loadUserList(rat.trustedUserFile, &rat.trustedUsers)
 	loadUserList(rat.ignoredUserFile, &rat.ignoredUsers)
+	fmt.Println(rat.trustedUsers)
+	fmt.Println(rat.ignoredUsers)
 
 	client.Join(rat.streamName)
-	client.Say(rat.streamName, "ChatRat: online")
+	defer client.Disconnect()
+	defer client.Depart(rat.streamName)
+	rat.speak("ChatRat: online")
 	go rat.speechHandler()
 	err := client.Connect()
 
@@ -100,13 +108,12 @@ func loadUserList(filename string, list *[]string) {
 }
 
 func (rat *ChatRat) speak(message string) {
+	// log.Println("saying" + message)
 	rat.client.Say(rat.streamName, message)
 }
 
 func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 	messageStrings := strings.Split(message.Message, " ")
-	log.Println(strconv.FormatBool(len(messageStrings) > 0) + ", " + strconv.FormatBool(messageStrings[0] == rat.commandStarter) + ", " + message.User.Name)
-	fmt.Println(messageStrings)
 	if (len(messageStrings) > 0) && (messageStrings[0] == rat.commandStarter) && rat.isUserTrusted(message.User.Name) { //Starting a chatrat command
 		if len(messageStrings) > 1 {
 			switch messageStrings[1] {
@@ -133,6 +140,9 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 								}
 								_, err := time.ParseDuration(messageStrings[3] + timeExtension)
 								if err == nil {
+									rat.chatDelay = make([]string, 1)
+									rat.chatDelay[0] = messageStrings[3] + timeExtension
+									rat.delayChanged = true
 									rat.speak("@" + message.User.Name + " I will set the delay to " + messageStrings[3] + timeExtension + " when I get smart enough")
 								} else {
 									log.Println(err)
@@ -197,6 +207,7 @@ func (rat *ChatRat) speechDelayPicker() time.Duration {
 		return time.Duration(rand.Int63n(int64(t2-t1/time.Millisecond))) * time.Millisecond
 	case 0:
 		log.Println("I don't have a proper delay set up")
+		log.Println(rat.chatDelay)
 		return 5 * time.Minute
 	}
 	log.Print("The chatDelay array seems to have a bad amount of inputs, here it is")
@@ -205,9 +216,40 @@ func (rat *ChatRat) speechDelayPicker() time.Duration {
 }
 
 func (rat *ChatRat) speechHandler() {
-	rat.speak(rat.graph.GenerateMarkovString())
-	rat.chatTrigger.Reset(rat.speechDelayPicker())
-	<-rat.chatTrigger.C
+	done := true
+	for {
+		if rat.delayChanged {
+			rat.speak(rat.graph.GenerateMarkovString())
+			if !rat.chatTrigger.Stop() {
+				<-rat.chatTrigger.C
+			}
+			rat.delayChanged = false
+			done = true
+		}
+		if done {
+			done = false
+			rat.chatTrigger = *time.AfterFunc(rat.speechDelayPicker(), func() {
+				rat.speak(rat.graph.GenerateMarkovString())
+				done = true
+			})
+			// go func() {
+			// 	select {
+			// 	case <-rat.chatTrigger.C:
+			// 		rat.speak(rat.graph.GenerateMarkovString())
+
+			// 		if !rat.chatTrigger.Stop() {
+			// 			<-rat.chatTrigger.C
+			// 		}
+			// 		rat.chatTrigger.Reset(rat.speechDelayPicker())
+			// 		done = true
+			// 		return
+			// 	case <-canceled:
+			// 		done = true
+			// 		return
+			// 	}
+			// }()
+		}
+	}
 }
 
 func (rat *ChatRat) writeText(text string) {
