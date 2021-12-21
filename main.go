@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
 	"strconv"
 	"strings"
@@ -26,6 +27,10 @@ type ChatRat struct {
 	botName         string
 	ignoredUsers    []string
 	ignoredUserFile string
+	chatDelay       []string
+	chatTrigger     time.Timer
+
+	lastGoodTime time.Duration //The last time that was properly parsed. This shouldn't have to be used, but if the error checking fails for some reason, well it'll keep things running.
 }
 
 func main() {
@@ -35,7 +40,8 @@ func main() {
 	botName := flag.String("botname", "", "The name of the bot")
 	chatLog := flag.String("chatlog", "chat.log", "The name of the chat log to use. chat.log is used as the default.")
 	trustFile := flag.String("trustfile", "trust.list", "The name of the list of trusted users")
-	ignoreFile := flag.String("ignorefile", "block.list", "THe name of the list of ignored users")
+	ignoreFile := flag.String("ignorefile", "block.list", "The name of the list of ignored users")
+	commandStarter := flag.String("command", "!chatrat", "The word to get the bot's attention for commands")
 
 	flag.Parse()
 	rat.oauth = *oauth
@@ -44,8 +50,7 @@ func main() {
 	rat.chatLog = *chatLog
 	rat.trustedUserFile = *trustFile
 	rat.ignoredUserFile = *ignoreFile
-
-	fmt.Println(rat)
+	rat.commandStarter = *commandStarter
 
 	// or client := twitch.NewAnonymousClient() for an anonymous user (no write capabilities)
 	fmt.Println(rat.botName + " " + rat.oauth + " " + rat.streamName)
@@ -56,6 +61,7 @@ func main() {
 			rat.messageParser(message)
 		}
 	})
+	//Loading the chat history to give the model something to go off of at the start.
 	rat.loadChatLog()
 	//Setting up the stuff for special users
 	loadUserList(rat.trustedUserFile, &rat.trustedUsers)
@@ -93,11 +99,15 @@ func loadUserList(filename string, list *[]string) {
 	}
 }
 
+func (rat *ChatRat) speak(message string) {
+	rat.client.Say(rat.streamName, message)
+}
+
 func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 	messageStrings := strings.Split(message.Message, " ")
-	log.Println(strconv.FormatBool(len(messageStrings) > 0) + ", " + strconv.FormatBool(messageStrings[0] == "!chatrat") + ", " + message.User.Name)
+	log.Println(strconv.FormatBool(len(messageStrings) > 0) + ", " + strconv.FormatBool(messageStrings[0] == rat.commandStarter) + ", " + message.User.Name)
 	fmt.Println(messageStrings)
-	if (len(messageStrings) > 0) && (messageStrings[0] == "!chatrat") && rat.isUserTrusted(message.User.Name) { //Starting a chatrat command
+	if (len(messageStrings) > 0) && (messageStrings[0] == rat.commandStarter) && rat.isUserTrusted(message.User.Name) { //Starting a chatrat command
 		if len(messageStrings) > 1 {
 			switch messageStrings[1] {
 			case "set": //Setting ChatRat variables
@@ -107,40 +117,40 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 						if len(messageStrings) > 4 {
 							if s, err := strconv.ParseFloat(messageStrings[3], 32); err == nil {
 								if s < 0 {
-									rat.client.Say("iampattycakes", "@"+message.User.Name+" I don't understand how a delay can be negative.")
+									rat.speak("@" + message.User.Name + " I don't understand how a delay can be negative.")
 									return
 								}
+								var timeExtension string
 								switch messageStrings[4] {
 								case "seconds", "Seconds", "second", "Second":
-									_, err := time.ParseDuration(messageStrings[3] + "s")
-									if err == nil {
-										rat.client.Say("iampattycakes", "@"+message.User.Name+" I will set the delay to "+messageStrings[3]+"s"+" when I get smart enough")
-									} else {
-										log.Println(err)
-										rat.client.Say("iampattycakes", "@"+message.User.Name+" I don't know what went wrong here. Please screenshot what you said and send to IAmPattycakes on the discord.")
-									}
+									timeExtension = "s"
 								case "minutes", "Minutes", "minute", "Minute":
-									timeToParse := messageStrings[3] + "m"
-									_, err := time.ParseDuration(timeToParse)
-									if err == nil {
-										rat.client.Say("iampattycakes", "@"+message.User.Name+" I will set the delay to "+messageStrings[3]+"m"+" when I get smart enough")
-									} else {
-										rat.client.Say("iampattycakes", "@"+message.User.Name+" I don't know what went wrong here. Please screenshot what you said and send to IAmPattycakes on the discord.")
-									}
+									timeExtension = "m"
+								case "hours", "Hours", "hour", "Hour":
+									timeExtension = "h"
+								default:
+									rat.speak("@" + message.User.Name + "I don't understand what unit of time you're speaking about.")
+								}
+								_, err := time.ParseDuration(messageStrings[3] + timeExtension)
+								if err == nil {
+									rat.speak("@" + message.User.Name + " I will set the delay to " + messageStrings[3] + timeExtension + " when I get smart enough")
+								} else {
+									log.Println(err)
+									rat.speak("@" + message.User.Name + " I don't know what went wrong here. Please screenshot what you said and send to IAmPattycakes on the discord.")
 								}
 							} else if err != nil {
-								rat.client.Say("iampattycakes", "@"+message.User.Name+" I see you're trying to set the delay, but you gave me a weird number. ChatRat doesn't know math very well.")
+								rat.speak("@" + message.User.Name + " I see you're trying to set the delay, but you gave me a weird number. ChatRat doesn't know math very well.")
 							}
 						} else {
-							rat.client.Say("iampattycakes", "@"+message.User.Name+" I didn't hear any delay from you. I need a number and either minutes or seconds, like \"3 minutes\" or \"10 seconds\"")
+							rat.speak("@" + message.User.Name + " I didn't hear any delay from you. I need a number and either hours, minutes, or seconds, like \"3 minutes\" or \"10 seconds\"")
 						}
 					}
 				} else {
-					rat.client.Say("iampattycakes", "@"+message.User.Name+" I couldn't understand you, I only saw you say \"!chatrat set\" without anything else.")
+					rat.speak("@" + message.User.Name + " I couldn't understand you, I only saw you say \"" + rat.commandStarter + " set\" without anything else.")
 					return
 				}
 			default:
-				rat.client.Say("iampattycakes", "@"+message.User.Name+" I couldn't understand you, I only saw you say \"!chatrat\" before I got confused.")
+				rat.speak("@" + message.User.Name + " I couldn't understand you, I only saw you say \"" + rat.commandStarter + "\" before I got confused.")
 				return
 			}
 		}
@@ -159,12 +169,45 @@ func (rat *ChatRat) isUserTrusted(username string) bool {
 	return false
 }
 
-func (rat *ChatRat) speechHandler() {
-	time.Sleep(10 * time.Second) //Wait for some connections
-	for {
-		rat.client.Say("iampattycakes", rat.graph.GenerateMarkovString())
-		time.Sleep(2 * time.Minute)
+func (rat *ChatRat) speechDelayPicker() time.Duration {
+	switch len(rat.chatDelay) {
+	case 1:
+		t, err := time.ParseDuration(rat.chatDelay[0])
+		if err == nil {
+			rat.lastGoodTime = t
+			return t
+		} else {
+			log.Println("Error parsing time: " + rat.chatDelay[0])
+			return rat.lastGoodTime
+		}
+	case 2:
+		t1, err := time.ParseDuration(rat.chatDelay[0])
+		if err != nil {
+			log.Println("Error parsing time: " + rat.chatDelay[0])
+			return rat.lastGoodTime
+		}
+		t2, err := time.ParseDuration(rat.chatDelay[1])
+		if err != nil {
+			log.Println("Error parsing time: " + rat.chatDelay[1])
+			return rat.lastGoodTime
+		}
+		if t1 > t2 {
+			t1, t2 = t2, t1 //Swap the times to make the time randomization math work nicely without having to duplicate a bunch of crap.
+		}
+		return time.Duration(rand.Int63n(int64(t2-t1/time.Millisecond))) * time.Millisecond
+	case 0:
+		log.Println("I don't have a proper delay set up")
+		return 5 * time.Minute
 	}
+	log.Print("The chatDelay array seems to have a bad amount of inputs, here it is")
+	log.Println(rat.chatDelay)
+	return 5 * time.Minute
+}
+
+func (rat *ChatRat) speechHandler() {
+	rat.speak(rat.graph.GenerateMarkovString())
+	rat.chatTrigger.Reset(rat.speechDelayPicker())
+	<-rat.chatTrigger.C
 }
 
 func (rat *ChatRat) writeText(text string) {
