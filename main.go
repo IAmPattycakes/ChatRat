@@ -5,10 +5,10 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"math/rand"
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	markov "github.com/IAmPattycakes/Go-Markov/v2"
@@ -28,7 +28,7 @@ type ChatRat struct {
 	ignoredUsers    []string
 	ignoredUserFile string
 
-	chatDelay    []string
+	chatDelayOld []string
 	chatPaused   bool
 	delayChanged bool
 	chatTrigger  time.Timer
@@ -45,6 +45,15 @@ type ChatRat struct {
 	heCrazyThreshold int
 	heCrazyCooldown  time.Duration
 	heCrazyLastTime  time.Time
+
+	chatDelay chatDelay
+}
+
+type chatDelay struct {
+	mu       sync.RWMutex
+	ticker   *time.Ticker
+	duration time.Duration
+	paused   bool
 }
 
 func main() {
@@ -65,9 +74,16 @@ func main() {
 	rat.trustedUserFile = *trustFile
 	rat.ignoredUserFile = *ignoreFile
 	rat.commandStarter = *commandStarter
-	rat.chatDelay = make([]string, 1)
-	rat.chatDelay[0] = "2m"
+	// delete
+	rat.chatDelayOld = make([]string, 1)
+	rat.chatDelayOld[0] = "2m"
 	rat.chatPaused = false
+
+	rat.chatDelay.mu.RLock()
+	rat.chatDelay.duration = 2 * time.Minute
+	rat.chatDelay.ticker = time.NewTicker(rat.chatDelay.duration)
+	rat.chatDelay.paused = false
+	rat.chatDelay.mu.RUnlock()
 
 	rat.lastGoodTime = 10 * time.Second
 
@@ -209,12 +225,13 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 									default:
 										rat.speak("@" + message.User.Name + "I don't understand what unit of time you're speaking about.")
 									}
-									_, err := time.ParseDuration(messageStrings[3] + timeExtension)
+									dur, err := time.ParseDuration(messageStrings[3] + timeExtension)
 									if err == nil {
-										rat.speak("Sorry, I don't know how to set the time yet. I have a bad problem with talking more than I should when the delay gets set.")
-										// rat.chatDelay = make([]string, 1)
-										// rat.chatDelay[0] = messageStrings[3] + timeExtension
-										// rat.delayChanged = true
+										rat.chatDelay.mu.RLock()
+										rat.chatDelay.ticker.Stop()
+										rat.chatDelay.duration = dur
+										rat.chatDelay.ticker.Reset(dur)
+										rat.chatDelay.mu.RUnlock()
 									} else {
 										log.Println(err)
 										rat.speak("@" + message.User.Name + " I don't know what went wrong here. Please screenshot what you said and send to the #chatrat channel on the discord.")
@@ -230,14 +247,20 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 						rat.speak("@" + message.User.Name + " I couldn't understand you, I only saw you say \"" + rat.commandStarter + " set\" without anything else.")
 						return
 					}
+
 				case "stop":
-					if !rat.chatTrigger.Stop() { //Stop the timer, but don't let the speech handler know.
-						<-rat.chatTrigger.C
-					}
-					rat.chatPaused = true
+					rat.chatDelay.mu.RLock()
+					rat.chatDelay.ticker.Stop()
+					rat.chatDelay.paused = true
+					rat.chatDelay.mu.RUnlock()
+
 					rat.speak("Okay daddy I'll stop talking = >.< =")
 				case "start":
-					rat.chatPaused = false
+					rat.chatDelay.mu.RLock()
+					rat.chatDelay.ticker.Reset(rat.chatDelay.duration)
+					rat.chatDelay.paused = false
+					rat.chatDelay.mu.RUnlock()
+
 					rat.speak("Thankies for taking the muzzle off! =^.^=")
 				case "ignore":
 					if len(messageStrings) > 2 {
@@ -302,64 +325,13 @@ func (rat *ChatRat) isUserTrusted(username string) bool {
 	return false
 }
 
-func (rat *ChatRat) speechDelayPicker() time.Duration {
-	switch len(rat.chatDelay) {
-	case 1:
-		t, err := time.ParseDuration(rat.chatDelay[0])
-		if err == nil {
-			rat.lastGoodTime = t
-			return t
-		} else {
-			log.Println("Error parsing time: " + rat.chatDelay[0])
-			return rat.lastGoodTime
-		}
-	case 2:
-		t1, err := time.ParseDuration(rat.chatDelay[0])
-		if err != nil {
-			log.Println("Error parsing time: " + rat.chatDelay[0])
-			return rat.lastGoodTime
-		}
-		t2, err := time.ParseDuration(rat.chatDelay[1])
-		if err != nil {
-			log.Println("Error parsing time: " + rat.chatDelay[1])
-			return rat.lastGoodTime
-		}
-		if t1 > t2 {
-			t1, t2 = t2, t1 //Swap the times to make the time randomization math work nicely without having to duplicate a bunch of crap.
-		}
-		return time.Duration(rand.Int63n(int64(t2-t1/time.Millisecond))) * time.Millisecond
-	case 0:
-		log.Println("I don't have a proper delay set up")
-		log.Println(rat.chatDelay)
-		return 5 * time.Minute
-	}
-	log.Print("The chatDelay array seems to have a bad amount of inputs, here it is")
-	log.Println(rat.chatDelay)
-	return 5 * time.Minute
-}
-
 func (rat *ChatRat) speechHandler() {
-	done := true
-	for {
-		if !rat.chatPaused {
-			if rat.delayChanged {
-				log.Println("Speaking from the delayChanged part")
-				rat.speak(rat.graph.GenerateMarkovString())
-				if !rat.chatTrigger.Stop() {
-					log.Println("Couldnt stop the timer")
-					<-rat.chatTrigger.C
-				}
-				rat.delayChanged = false
-				done = true
-			}
-			if done {
-				done = false
-				rat.chatTrigger = *time.AfterFunc(rat.speechDelayPicker(), func() {
-					rat.speak(rat.graph.GenerateMarkovString())
-					done = true
-				})
-			}
+	for range rat.chatDelay.ticker.C {
+		if rat.chatPaused {
+			continue
 		}
+
+		rat.speak(rat.graph.GenerateMarkovString())
 	}
 }
 
