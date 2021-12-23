@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -27,12 +28,6 @@ type ChatRat struct {
 	botName         string
 	ignoredUsers    []string
 	ignoredUserFile string
-
-	chatDelayOld []string
-	chatPaused   bool
-	delayChanged bool
-	chatTrigger  time.Timer
-	lastGoodTime time.Duration //The last time that was properly parsed. This shouldn't have to be used, but if the error checking fails for some reason, well it'll keep things running.
 
 	catKisses        []time.Time
 	catKissTimeout   time.Duration
@@ -74,18 +69,13 @@ func main() {
 	rat.trustedUserFile = *trustFile
 	rat.ignoredUserFile = *ignoreFile
 	rat.commandStarter = *commandStarter
-	// delete
-	rat.chatDelayOld = make([]string, 1)
-	rat.chatDelayOld[0] = "2m"
-	rat.chatPaused = false
 
+	// rat timer settings
 	rat.chatDelay.mu.RLock()
 	rat.chatDelay.duration = 2 * time.Minute
 	rat.chatDelay.ticker = time.NewTicker(rat.chatDelay.duration)
 	rat.chatDelay.paused = false
 	rat.chatDelay.mu.RUnlock()
-
-	rat.lastGoodTime = 10 * time.Second
 
 	rat.catKissTimeout = 10 * time.Second
 	rat.catKissThreshold = 3
@@ -199,120 +189,145 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 			}
 		}
 	}
-	if (len(messageStrings) > 0) && (messageStrings[0] == rat.commandStarter) { //Starting a chatrat command
-		if len(messageStrings) > 1 {
-			switch rat.isUserTrusted(message.User.Name) {
-			case true:
-				switch messageStrings[1] {
-				case "set": //Setting ChatRat variables
-					if len(messageStrings) > 2 {
-						switch messageStrings[2] {
-						case "delay": //Setting the delay between messages
-							if len(messageStrings) > 4 {
-								if s, err := strconv.ParseFloat(messageStrings[3], 32); err == nil {
-									if s < 0 {
-										rat.speak("@" + message.User.Name + " I don't understand how a delay can be negative.")
-										return
-									}
-									var timeExtension string
-									switch messageStrings[4] {
-									case "seconds", "Seconds", "second", "Second":
-										timeExtension = "s"
-									case "minutes", "Minutes", "minute", "Minute":
-										timeExtension = "m"
-									case "hours", "Hours", "hour", "Hour":
-										timeExtension = "h"
-									default:
-										rat.speak("@" + message.User.Name + "I don't understand what unit of time you're speaking about.")
-									}
-									dur, err := time.ParseDuration(messageStrings[3] + timeExtension)
-									if err == nil {
-										rat.chatDelay.mu.RLock()
-										rat.chatDelay.ticker.Stop()
-										rat.chatDelay.duration = dur
-										rat.chatDelay.ticker.Reset(dur)
-										rat.chatDelay.mu.RUnlock()
-									} else {
-										log.Println(err)
-										rat.speak("@" + message.User.Name + " I don't know what went wrong here. Please screenshot what you said and send to the #chatrat channel on the discord.")
-									}
-								} else if err != nil {
-									rat.speak("@" + message.User.Name + " I see you're trying to set the delay, but you gave me a weird number. ChatRat doesn't know math very well.")
-								}
-							} else {
-								rat.speak("@" + message.User.Name + " I didn't hear any delay from you. I need a number and either hours, minutes, or seconds, like \"3 minutes\" or \"10 seconds\"")
-							}
-						}
-					} else {
-						rat.speak("@" + message.User.Name + " I couldn't understand you, I only saw you say \"" + rat.commandStarter + " set\" without anything else.")
-						return
-					}
 
-				case "stop":
-					rat.chatDelay.mu.RLock()
-					rat.chatDelay.ticker.Stop()
-					rat.chatDelay.paused = true
-					rat.chatDelay.mu.RUnlock()
-
-					rat.speak("Okay daddy I'll stop talking = >.< =")
-				case "start":
-					rat.chatDelay.mu.RLock()
-					rat.chatDelay.ticker.Reset(rat.chatDelay.duration)
-					rat.chatDelay.paused = false
-					rat.chatDelay.mu.RUnlock()
-
-					rat.speak("Thankies for taking the muzzle off! =^.^=")
-				case "ignore":
-					if len(messageStrings) > 2 {
-						rat.speak("Sorry @" + messageStrings[2] + ", I can't talk to you anymore")
-						rat.ignoredUsers = append(rat.ignoredUsers, messageStrings[2])
-					} else {
-						rat.speak("@" + message.User.Name + " I didn't see a user to ignore.")
-					}
-				case "unignore":
-					if len(messageStrings) > 2 {
-						array := make([]string, 0)
-						for _, v := range rat.ignoredUsers {
-							if strings.ToLower(messageStrings[2]) != v {
-								array = append(array, v)
-							}
-						}
-						rat.ignoredUsers = array
-						fmt.Println(rat.ignoredUsers)
-					}
-				case "trust":
-					if len(messageStrings) > 2 {
-						rat.speak("Okay @" + messageStrings[2] + ", I'll let you tell me things to do")
-						rat.trustedUsers = append(rat.ignoredUsers, messageStrings[2])
-					} else {
-						rat.speak("@" + message.User.Name + " I didn't see a user to trust.")
-					}
-				case "untrust":
-					if len(messageStrings) > 2 {
-						array := make([]string, 0)
-						for _, v := range rat.ignoredUsers {
-							if strings.ToLower(messageStrings[2]) != v {
-								array = append(array, v)
-							}
-						}
-						rat.ignoredUsers = array
-						rat.speak("Sorry @" + messageStrings[2] + ", I can't listen to commands from you anymore")
-						fmt.Println(rat.ignoredUsers)
-					}
-				case "speak":
-					rat.speak(rat.graph.GenerateMarkovString())
-				default:
-					rat.speak("@" + message.User.Name + " I couldn't understand you, I only saw you say \"" + rat.commandStarter + "\" before I got confused.")
-					return
-				}
-			case false:
-				rat.speak("Hi I'm ChatRat, I only let trusted people tell me what to do, but I guess you can say my name if you like =^.^=")
-			}
-
-		}
-	} else {
+	messageLength := len(messageStrings)
+	if messageLength <= 0 || messageStrings[0] != rat.commandStarter {
 		rat.writeText(message.Message)
 		rat.graph.LoadPhrase(message.Message)
+		return
+	}
+
+	if messageLength <= 1 {
+		return
+	}
+
+	if !rat.isUserTrusted(message.User.Name) {
+		rat.speak("Hi I'm ChatRat, I only let trusted people tell me what to do, but I guess you can say my name if you like =^.^=")
+		return
+	}
+
+	switch messageStrings[1] {
+	case "delay":
+		rat.speak(fmt.Sprintf("@%s the current delay is set to %s", message.User.Name, rat.chatDelay.duration))
+	case "set": //Setting ChatRat variables
+		if messageLength <= 2 {
+			rat.speak("@" + message.User.Name + " I couldn't understand you, I only saw you say \"" + rat.commandStarter + " set\" without anything else.")
+			return
+		}
+
+		switch messageStrings[2] {
+		case "delay": //Setting the delay between messages
+			if messageLength <= 4 {
+				rat.speak("@" + message.User.Name + " I didn't hear any delay from you. I need a number and either hours, minutes, or seconds, like \"3 minutes\" or \"10 seconds\"")
+				return
+			}
+
+			s, err := strconv.ParseFloat(messageStrings[3], 32)
+			if err != nil {
+				rat.speak("@" + message.User.Name + " I see you're trying to set the delay, but you gave me a weird number. ChatRat doesn't know math very well.")
+			}
+
+			if s < 0 {
+				rat.speak("@" + message.User.Name + " I don't understand how a delay can be negative.")
+				return
+			}
+
+			parseTimeExtension := func(message string) (string, error) {
+				switch message {
+				case "seconds", "Seconds", "second", "Second":
+					return "s", nil
+				case "minutes", "Minutes", "minute", "Minute":
+					return "m", nil
+				case "hours", "Hours", "hour", "Hour":
+					return "h", nil
+				default:
+					return "", errors.New("unknown time extension format")
+				}
+			}
+
+			timeExtension, err := parseTimeExtension(messageStrings[4])
+			if err != nil {
+				rat.speak("@" + message.User.Name + "I don't understand what unit of time you're speaking about.")
+				return
+			}
+
+			dur, err := time.ParseDuration(messageStrings[3] + timeExtension)
+			if err != nil {
+				log.Println(err)
+				rat.speak("@" + message.User.Name + " I don't know what went wrong here. Please screenshot what you said and send to the #chatrat channel on the discord.")
+				return
+			}
+
+			rat.chatDelay.mu.RLock()
+			log.Printf("chat delay duration updating from [%s] to [%s]", rat.chatDelay.duration, dur)
+			rat.chatDelay.ticker.Stop()
+			rat.chatDelay.duration = dur
+			rat.chatDelay.ticker.Reset(dur)
+			rat.chatDelay.mu.RUnlock()
+		}
+	case "stop":
+		rat.chatDelay.mu.RLock()
+		rat.chatDelay.ticker.Stop()
+		rat.chatDelay.paused = true
+		rat.chatDelay.mu.RUnlock()
+
+		rat.speak("Okay daddy I'll stop talking = >.< =")
+	case "start":
+		rat.chatDelay.mu.RLock()
+		rat.chatDelay.ticker.Reset(rat.chatDelay.duration)
+		rat.chatDelay.paused = false
+		rat.chatDelay.mu.RUnlock()
+
+		rat.speak("Thankies for taking the muzzle off! =^.^=")
+	case "ignore":
+		if messageLength > 2 {
+			rat.speak("Sorry @" + messageStrings[2] + ", I can't talk to you anymore")
+			rat.ignoredUsers = append(rat.ignoredUsers, messageStrings[2])
+			return
+		}
+
+		rat.speak("@" + message.User.Name + " I didn't see a user to ignore.")
+	case "unignore":
+		if messageLength <= 2 {
+			return
+		}
+
+		array := make([]string, 0)
+		for _, v := range rat.ignoredUsers {
+			if strings.ToLower(messageStrings[2]) != v {
+				array = append(array, v)
+			}
+		}
+
+		rat.ignoredUsers = array
+		fmt.Println(rat.ignoredUsers)
+	case "trust":
+		if messageLength > 2 {
+			rat.speak("Okay @" + messageStrings[2] + ", I'll let you tell me things to do")
+			rat.trustedUsers = append(rat.ignoredUsers, messageStrings[2])
+			return
+		}
+
+		rat.speak("@" + message.User.Name + " I didn't see a user to trust.")
+	case "untrust":
+		if messageLength <= 2 {
+			return
+		}
+
+		array := make([]string, 0)
+		for _, v := range rat.ignoredUsers {
+			if strings.ToLower(messageStrings[2]) != v {
+				array = append(array, v)
+			}
+		}
+
+		rat.ignoredUsers = array
+		rat.speak("Sorry @" + messageStrings[2] + ", I can't listen to commands from you anymore")
+		fmt.Println(rat.ignoredUsers)
+	case "speak":
+		rat.speak(rat.graph.GenerateMarkovString())
+	default:
+		rat.speak("@" + message.User.Name + " I couldn't understand you, I only saw you say \"" + rat.commandStarter + "\" before I got confused.")
 	}
 }
 
@@ -327,7 +342,7 @@ func (rat *ChatRat) isUserTrusted(username string) bool {
 
 func (rat *ChatRat) speechHandler() {
 	for range rat.chatDelay.ticker.C {
-		if rat.chatPaused {
+		if rat.chatDelay.paused {
 			continue
 		}
 
