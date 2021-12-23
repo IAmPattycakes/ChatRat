@@ -15,4 +15,4 @@ More to come, just gotta work on it
 Currently two emotes are set to join in a spam, catKiss and heCrazy. 
 
 ## How to run
-Run it in CLI with some of the flags set, -oauth=oauth:<code here> -botname=<name of twitch user> -stream=<name of stream to join>
+Run it in CLI with some of the flags set, `-oauth=oauth:code_here -botname=name_of_twitch_user -stream=name_of_stream_to_join`
