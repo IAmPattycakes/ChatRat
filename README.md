@@ -3,12 +3,12 @@ ChatRat is a twitch chat bot built in Go that is a dedicated shitpost machine. A
 
 ## Commands
 Commands are permissioned, so only trusted users are allowed to execute them. Currently the commands are: 
-- !chatrat stop //Stops the constant markov text chatting
-- !chatrat start //Starts the constant markov text chatting if it was previously stopped. 
-- !chatrat trust <username> //Adds a user to the trusted user list, letting them execute commands
-- !chatrat untrust <username> //Removes a user from the trusted user list
-- !chatrat ignore <username> //Ignores a user 
-- !chatrat unignore <username>
+- `!chatrat stop` Stops the constant markov text chatting
+- `!chatrat start` Starts the constant markov text chatting if it was previously stopped. 
+- `!chatrat trust <username>` Adds a user to the trusted user list, letting them execute commands
+- `!chatrat untrust <username>` Removes a user from the trusted user list
+- `!chatrat ignore <username>` Ignores a user 
+- `!chatrat unignore <username>`
 More to come, just gotta work on it
 
 ## Other stuff
