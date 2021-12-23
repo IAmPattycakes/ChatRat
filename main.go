@@ -29,10 +29,22 @@ type ChatRat struct {
 	ignoredUserFile string
 
 	chatDelay    []string
+	chatPaused   bool
 	delayChanged bool
 	chatTrigger  time.Timer
 	lastGoodTime time.Duration //The last time that was properly parsed. This shouldn't have to be used, but if the error checking fails for some reason, well it'll keep things running.
 
+	catKisses        []time.Time
+	catKissTimeout   time.Duration
+	catKissThreshold int
+	catKissCooldown  time.Duration
+	catKissLastTime  time.Time
+
+	heCrazies        []time.Time
+	heCrazyTimeout   time.Duration
+	heCrazyThreshold int
+	heCrazyCooldown  time.Duration
+	heCrazyLastTime  time.Time
 }
 
 func main() {
@@ -54,9 +66,18 @@ func main() {
 	rat.ignoredUserFile = *ignoreFile
 	rat.commandStarter = *commandStarter
 	rat.chatDelay = make([]string, 1)
-	rat.chatDelay[0] = "10s"
+	rat.chatDelay[0] = "2m"
+	rat.chatPaused = false
 
 	rat.lastGoodTime = 10 * time.Second
+
+	rat.catKissTimeout = 10 * time.Second
+	rat.catKissThreshold = 3
+	rat.catKissCooldown = 1 * time.Minute
+
+	rat.heCrazyTimeout = 10 * time.Second
+	rat.heCrazyThreshold = 3
+	rat.heCrazyCooldown = 1 * time.Minute
 
 	client := twitch.NewClient(rat.botName, rat.oauth)
 	rat.client = client
@@ -76,7 +97,7 @@ func main() {
 	client.Join(rat.streamName)
 	defer client.Disconnect()
 	defer client.Depart(rat.streamName)
-	rat.speak("ChatRat: online")
+	rat.speak("Hi chat I'm back! =^.^=")
 	go rat.speechHandler()
 	err := client.Connect()
 
@@ -112,57 +133,159 @@ func (rat *ChatRat) speak(message string) {
 	rat.client.Say(rat.streamName, message)
 }
 
+func contains(s []string, e string) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
+}
+
+func (rat *ChatRat) catKissCleaner() {
+	arr := make([]time.Time, 0)
+	for _, v := range rat.catKisses {
+		if v.Add(rat.catKissTimeout).After(time.Now()) {
+			arr = append(arr, v)
+		}
+	}
+	rat.catKisses = arr
+}
+
+func (rat *ChatRat) heCrazyCleaner() {
+	arr := make([]time.Time, 0)
+	for _, v := range rat.heCrazies {
+		if v.Add(rat.heCrazyTimeout).After(time.Now()) {
+			arr = append(arr, v)
+		}
+	}
+	rat.heCrazies = arr
+}
+
 func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 	messageStrings := strings.Split(message.Message, " ")
-	if (len(messageStrings) > 0) && (messageStrings[0] == rat.commandStarter) && rat.isUserTrusted(message.User.Name) { //Starting a chatrat command
+	//CatKissies
+	if contains(messageStrings, "catKiss") {
+		rat.catKissCleaner()
+		rat.catKisses = append(rat.catKisses, time.Now())
+		if len(rat.catKisses) > rat.catKissThreshold {
+			if rat.catKissLastTime.Add(rat.catKissCooldown).Before(time.Now()) {
+				rat.speak("catKiss")
+			}
+		}
+	}
+	if contains(messageStrings, "heCrazy") {
+		rat.heCrazyCleaner()
+		rat.heCrazies = append(rat.heCrazies, time.Now())
+		if len(rat.heCrazies) > rat.heCrazyThreshold {
+			if rat.heCrazyLastTime.Add(rat.heCrazyCooldown).Before(time.Now()) {
+				rat.speak("heCrazy")
+			}
+		}
+	}
+	if (len(messageStrings) > 0) && (messageStrings[0] == rat.commandStarter) { //Starting a chatrat command
 		if len(messageStrings) > 1 {
-			switch messageStrings[1] {
-			case "set": //Setting ChatRat variables
-				if len(messageStrings) > 2 {
-					switch messageStrings[2] {
-					case "delay": //Setting the delay between messages
-						if len(messageStrings) > 4 {
-							if s, err := strconv.ParseFloat(messageStrings[3], 32); err == nil {
-								if s < 0 {
-									rat.speak("@" + message.User.Name + " I don't understand how a delay can be negative.")
-									return
+			switch rat.isUserTrusted(message.User.Name) {
+			case true:
+				switch messageStrings[1] {
+				case "set": //Setting ChatRat variables
+					if len(messageStrings) > 2 {
+						switch messageStrings[2] {
+						case "delay": //Setting the delay between messages
+							if len(messageStrings) > 4 {
+								if s, err := strconv.ParseFloat(messageStrings[3], 32); err == nil {
+									if s < 0 {
+										rat.speak("@" + message.User.Name + " I don't understand how a delay can be negative.")
+										return
+									}
+									var timeExtension string
+									switch messageStrings[4] {
+									case "seconds", "Seconds", "second", "Second":
+										timeExtension = "s"
+									case "minutes", "Minutes", "minute", "Minute":
+										timeExtension = "m"
+									case "hours", "Hours", "hour", "Hour":
+										timeExtension = "h"
+									default:
+										rat.speak("@" + message.User.Name + "I don't understand what unit of time you're speaking about.")
+									}
+									_, err := time.ParseDuration(messageStrings[3] + timeExtension)
+									if err == nil {
+										rat.speak("Sorry, I don't know how to set the time yet. I have a bad problem with talking more than I should when the delay gets set.")
+										// rat.chatDelay = make([]string, 1)
+										// rat.chatDelay[0] = messageStrings[3] + timeExtension
+										// rat.delayChanged = true
+									} else {
+										log.Println(err)
+										rat.speak("@" + message.User.Name + " I don't know what went wrong here. Please screenshot what you said and send to the #chatrat channel on the discord.")
+									}
+								} else if err != nil {
+									rat.speak("@" + message.User.Name + " I see you're trying to set the delay, but you gave me a weird number. ChatRat doesn't know math very well.")
 								}
-								var timeExtension string
-								switch messageStrings[4] {
-								case "seconds", "Seconds", "second", "Second":
-									timeExtension = "s"
-								case "minutes", "Minutes", "minute", "Minute":
-									timeExtension = "m"
-								case "hours", "Hours", "hour", "Hour":
-									timeExtension = "h"
-								default:
-									rat.speak("@" + message.User.Name + "I don't understand what unit of time you're speaking about.")
-								}
-								_, err := time.ParseDuration(messageStrings[3] + timeExtension)
-								if err == nil {
-									rat.chatDelay = make([]string, 1)
-									rat.chatDelay[0] = messageStrings[3] + timeExtension
-									rat.delayChanged = true
-									rat.speak("@" + message.User.Name + " I will set the delay to " + messageStrings[3] + timeExtension + " when I get smart enough")
-								} else {
-									log.Println(err)
-									rat.speak("@" + message.User.Name + " I don't know what went wrong here. Please screenshot what you said and send to IAmPattycakes on the discord.")
-								}
-							} else if err != nil {
-								rat.speak("@" + message.User.Name + " I see you're trying to set the delay, but you gave me a weird number. ChatRat doesn't know math very well.")
+							} else {
+								rat.speak("@" + message.User.Name + " I didn't hear any delay from you. I need a number and either hours, minutes, or seconds, like \"3 minutes\" or \"10 seconds\"")
 							}
-						} else {
-							rat.speak("@" + message.User.Name + " I didn't hear any delay from you. I need a number and either hours, minutes, or seconds, like \"3 minutes\" or \"10 seconds\"")
 						}
+					} else {
+						rat.speak("@" + message.User.Name + " I couldn't understand you, I only saw you say \"" + rat.commandStarter + " set\" without anything else.")
+						return
 					}
-				} else {
-					rat.speak("@" + message.User.Name + " I couldn't understand you, I only saw you say \"" + rat.commandStarter + " set\" without anything else.")
+				case "stop":
+					if !rat.chatTrigger.Stop() { //Stop the timer, but don't let the speech handler know.
+						<-rat.chatTrigger.C
+					}
+					rat.chatPaused = true
+					rat.speak("Okay daddy I'll stop talking = >.< =")
+				case "start":
+					rat.chatPaused = false
+					rat.speak("Thankies for taking the muzzle off! =^.^=")
+				case "ignore":
+					if len(messageStrings) > 2 {
+						rat.speak("Sorry @" + messageStrings[2] + ", I can't talk to you anymore")
+						rat.ignoredUsers = append(rat.ignoredUsers, messageStrings[2])
+					} else {
+						rat.speak("@" + message.User.Name + " I didn't see a user to ignore.")
+					}
+				case "unignore":
+					if len(messageStrings) > 2 {
+						array := make([]string, 0)
+						for _, v := range rat.ignoredUsers {
+							if strings.ToLower(messageStrings[2]) != v {
+								array = append(array, v)
+							}
+						}
+						rat.ignoredUsers = array
+						fmt.Println(rat.ignoredUsers)
+					}
+				case "trust":
+					if len(messageStrings) > 2 {
+						rat.speak("Okay @" + messageStrings[2] + ", I'll let you tell me things to do")
+						rat.trustedUsers = append(rat.ignoredUsers, messageStrings[2])
+					} else {
+						rat.speak("@" + message.User.Name + " I didn't see a user to trust.")
+					}
+				case "untrust":
+					if len(messageStrings) > 2 {
+						array := make([]string, 0)
+						for _, v := range rat.ignoredUsers {
+							if strings.ToLower(messageStrings[2]) != v {
+								array = append(array, v)
+							}
+						}
+						rat.ignoredUsers = array
+						rat.speak("Sorry @" + messageStrings[2] + ", I can't listen to commands from you anymore")
+						fmt.Println(rat.ignoredUsers)
+					}
+				case "speak":
+					rat.speak(rat.graph.GenerateMarkovString())
+				default:
+					rat.speak("@" + message.User.Name + " I couldn't understand you, I only saw you say \"" + rat.commandStarter + "\" before I got confused.")
 					return
 				}
-			default:
-				rat.speak("@" + message.User.Name + " I couldn't understand you, I only saw you say \"" + rat.commandStarter + "\" before I got confused.")
-				return
+			case false:
+				rat.speak("Hi I'm ChatRat, I only let trusted people tell me what to do, but I guess you can say my name if you like =^.^=")
 			}
+
 		}
 	} else {
 		rat.writeText(message.Message)
@@ -218,36 +341,24 @@ func (rat *ChatRat) speechDelayPicker() time.Duration {
 func (rat *ChatRat) speechHandler() {
 	done := true
 	for {
-		if rat.delayChanged {
-			rat.speak(rat.graph.GenerateMarkovString())
-			if !rat.chatTrigger.Stop() {
-				<-rat.chatTrigger.C
-			}
-			rat.delayChanged = false
-			done = true
-		}
-		if done {
-			done = false
-			rat.chatTrigger = *time.AfterFunc(rat.speechDelayPicker(), func() {
+		if !rat.chatPaused {
+			if rat.delayChanged {
+				log.Println("Speaking from the delayChanged part")
 				rat.speak(rat.graph.GenerateMarkovString())
+				if !rat.chatTrigger.Stop() {
+					log.Println("Couldnt stop the timer")
+					<-rat.chatTrigger.C
+				}
+				rat.delayChanged = false
 				done = true
-			})
-			// go func() {
-			// 	select {
-			// 	case <-rat.chatTrigger.C:
-			// 		rat.speak(rat.graph.GenerateMarkovString())
-
-			// 		if !rat.chatTrigger.Stop() {
-			// 			<-rat.chatTrigger.C
-			// 		}
-			// 		rat.chatTrigger.Reset(rat.speechDelayPicker())
-			// 		done = true
-			// 		return
-			// 	case <-canceled:
-			// 		done = true
-			// 		return
-			// 	}
-			// }()
+			}
+			if done {
+				done = false
+				rat.chatTrigger = *time.AfterFunc(rat.speechDelayPicker(), func() {
+					rat.speak(rat.graph.GenerateMarkovString())
+					done = true
+				})
+			}
 		}
 	}
 }
