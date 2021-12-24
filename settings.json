@@ -1,0 +1,13 @@
+{
+    "oauth":"oauth:XXXXXXXXXXXXXXXXXXXXXXXXXXX",
+    "botname":"pattycakes_bot",
+    "streamname":"iampattycakes",
+    "trustedUsers":["iampattycakes"],
+    "ignoredUsers":["pattycakes_bot", "streamelements"],
+    "commandStarter":"!chatrat",
+    "chatlog":"chat.log",
+    "emotesToSpam":["catKiss", "heCrazy"],
+    "emoteSpamThreshold":3,
+    "emoteSpamTimeout":"10s",
+    "emoteSpamCooldown":"1m"
+}
