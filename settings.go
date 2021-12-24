@@ -52,7 +52,7 @@ func (s *settings) saveSettings() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	str, err := json.Marshal(s)
+	str, err := json.MarshalIndent(s, "", "\t")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -73,13 +73,15 @@ func (s *settings) ignoreUser(username string) {
 }
 
 func (s *settings) untrustUser(username string) bool {
+	removed := removeUserFromList(username, &s.TrustedUsers)
 	s.saveSettings()
-	return removeUserFromList(username, &s.TrustedUsers)
+	return removed
 }
 
 func (s *settings) unignoreUser(username string) bool {
+	removed := removeUserFromList(username, &s.IgnoredUsers)
 	s.saveSettings()
-	return removeUserFromList(username, &s.IgnoredUsers)
+	return removed
 }
 
 //removeUserFromList creates a new array and sets the list to it. Returns whether or not a user was removed.
@@ -93,6 +95,6 @@ func removeUserFromList(username string, list *[]string) bool {
 			ret = true
 		}
 	}
-	list = &arr
+	*list = arr
 	return ret
 }
