@@ -17,17 +17,9 @@ import (
 )
 
 type ChatRat struct {
-	graph           markov.Graph
-	client          *twitch.Client
-	trustedUsers    []string
-	trustedUserFile string
-	chatLog         string
-	streamName      string
-	oauth           string
-	commandStarter  string
-	botName         string
-	ignoredUsers    []string
-	ignoredUserFile string
+	graph       markov.Graph
+	client      *twitch.Client
+	ratSettings settings
 
 	catKisses        []time.Time
 	catKissTimeout   time.Duration
@@ -53,22 +45,11 @@ type chatDelay struct {
 
 func main() {
 	var rat ChatRat
-	oauth := flag.String("oauth", "", "The oauth code for the twitch bot")
-	streamName := flag.String("stream", "", "The name of the stream to join")
-	botName := flag.String("botname", "", "The name of the bot")
-	chatLog := flag.String("chatlog", "chat.log", "The name of the chat log to use. chat.log is used as the default.")
-	trustFile := flag.String("trustfile", "trust.list", "The name of the list of trusted users")
-	ignoreFile := flag.String("ignorefile", "block.list", "The name of the list of ignored users")
-	commandStarter := flag.String("command", "!chatrat", "The word to get the bot's attention for commands")
 
+	settingsFile := flag.String("settings", "settings.json", "The name of the settings json file")
 	flag.Parse()
-	rat.oauth = *oauth
-	rat.streamName = *streamName
-	rat.botName = *botName
-	rat.chatLog = *chatLog
-	rat.trustedUserFile = *trustFile
-	rat.ignoredUserFile = *ignoreFile
-	rat.commandStarter = *commandStarter
+	rat.ratSettings = *NewSettings(*settingsFile)
+	fmt.Println(rat.ratSettings)
 
 	// rat timer settings
 	rat.chatDelay.mu.RLock()
@@ -85,7 +66,7 @@ func main() {
 	rat.heCrazyThreshold = 3
 	rat.heCrazyCooldown = 1 * time.Minute
 
-	client := twitch.NewClient(rat.botName, rat.oauth)
+	client := twitch.NewClient(rat.ratSettings.BotName, rat.ratSettings.Oauth)
 	rat.client = client
 	rat.client.OnPrivateMessage(func(message twitch.PrivateMessage) {
 		if message.User.Name != "chatrat_" {
@@ -94,15 +75,10 @@ func main() {
 	})
 	//Loading the chat history to give the model something to go off of at the start.
 	rat.loadChatLog()
-	//Setting up the stuff for special users
-	loadUserList(rat.trustedUserFile, &rat.trustedUsers)
-	loadUserList(rat.ignoredUserFile, &rat.ignoredUsers)
-	fmt.Println(rat.trustedUsers)
-	fmt.Println(rat.ignoredUsers)
 
-	client.Join(rat.streamName)
+	client.Join(rat.ratSettings.StreamName)
 	defer client.Disconnect()
-	defer client.Depart(rat.streamName)
+	defer client.Depart(rat.ratSettings.StreamName)
 	rat.speak("Hi chat I'm back! =^.^=")
 	go rat.speechHandler()
 	err := client.Connect()
@@ -112,31 +88,9 @@ func main() {
 	}
 }
 
-func loadUserList(filename string, list *[]string) {
-	file, err := os.Open(filename)
-	quitnow := false
-	if err != nil {
-		log.Print(err)
-		quitnow = true
-	}
-	defer file.Close()
-	if quitnow {
-		return
-	}
-	scanner := bufio.NewScanner(file)
-
-	for scanner.Scan() {
-		*list = append(*list, scanner.Text())
-	}
-
-	if err := scanner.Err(); err != nil {
-		log.Fatal(err)
-	}
-}
-
 func (rat *ChatRat) speak(message string) {
 	// log.Println("saying" + message)
-	rat.client.Say(rat.streamName, message)
+	rat.client.Say(rat.ratSettings.StreamName, message)
 }
 
 func contains(s []string, e string) bool {
@@ -191,7 +145,7 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 	}
 
 	messageLength := len(messageStrings)
-	if messageLength <= 0 || messageStrings[0] != rat.commandStarter {
+	if messageLength <= 0 || messageStrings[0] != rat.ratSettings.CommandStarter {
 		rat.writeText(message.Message)
 		rat.graph.LoadPhrase(message.Message)
 		return
@@ -211,7 +165,7 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 		rat.speak(fmt.Sprintf("@%s the current delay is set to %s", message.User.Name, rat.chatDelay.duration))
 	case "set": //Setting ChatRat variables
 		if messageLength <= 2 {
-			rat.speak("@" + message.User.Name + " I couldn't understand you, I only saw you say \"" + rat.commandStarter + " set\" without anything else.")
+			rat.speak("@" + message.User.Name + " I couldn't understand you, I only saw you say \"" + rat.ratSettings.CommandStarter + " set\" without anything else.")
 			return
 		}
 
@@ -271,18 +225,18 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 		rat.chatDelay.paused = true
 		rat.chatDelay.mu.RUnlock()
 
-		rat.speak("Okay daddy I'll stop talking = >.< =")
+		rat.speak("Alright, I'll stop talking for now")
 	case "start":
 		rat.chatDelay.mu.RLock()
 		rat.chatDelay.ticker.Reset(rat.chatDelay.duration)
 		rat.chatDelay.paused = false
 		rat.chatDelay.mu.RUnlock()
 
-		rat.speak("Thankies for taking the muzzle off! =^.^=")
+		rat.speak("Yay I get to talk again!")
 	case "ignore":
 		if messageLength > 2 {
 			rat.speak("Sorry @" + messageStrings[2] + ", I can't talk to you anymore")
-			rat.ignoredUsers = append(rat.ignoredUsers, messageStrings[2])
+			rat.ratSettings.ignoreUser(messageStrings[2])
 			return
 		}
 
@@ -291,53 +245,44 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 		if messageLength <= 2 {
 			return
 		}
-
-		array := make([]string, 0)
-		for _, v := range rat.ignoredUsers {
-			if strings.ToLower(messageStrings[2]) != v {
-				array = append(array, v)
-			}
+		unignored := rat.ratSettings.unignoreUser(messageStrings[2])
+		if unignored {
+			rat.speak("Okay, I'll listen to what @" + messageStrings[2] + " has to say again.")
+		} else {
+			rat.speak("@" + message.User.Name + ", " + messageStrings[2] + " wasn't ignored before.")
 		}
-
-		rat.ignoredUsers = array
-		fmt.Println(rat.ignoredUsers)
+		fmt.Println(rat.ratSettings.IgnoredUsers)
 	case "trust":
 		if messageLength > 2 {
 			rat.speak("Okay @" + messageStrings[2] + ", I'll let you tell me things to do")
-			rat.trustedUsers = append(rat.ignoredUsers, messageStrings[2])
+			rat.ratSettings.trustUser(messageStrings[2])
 			return
 		}
-
 		rat.speak("@" + message.User.Name + " I didn't see a user to trust.")
 	case "untrust":
 		if messageLength <= 2 {
 			return
 		}
-
-		array := make([]string, 0)
-		for _, v := range rat.ignoredUsers {
-			if strings.ToLower(messageStrings[2]) != v {
-				array = append(array, v)
-			}
+		untrusted := rat.ratSettings.untrustUser(messageStrings[2])
+		if untrusted {
+			rat.speak("Sorry @" + messageStrings[2] + ", I can't listen to commands from you anymore")
+		} else {
+			rat.speak("@" + message.User.Name + ", " + messageStrings[2] + " wasn't trusted before.")
 		}
-
-		rat.ignoredUsers = array
 		rat.speak("Sorry @" + messageStrings[2] + ", I can't listen to commands from you anymore")
-		fmt.Println(rat.ignoredUsers)
 	case "speak":
 		rat.speak(rat.graph.GenerateMarkovString())
 	default:
-		rat.speak("@" + message.User.Name + " I couldn't understand you, I only saw you say \"" + rat.commandStarter + "\" before I got confused.")
+		rat.speak("@" + message.User.Name + " I couldn't understand you, I only saw you say \"" + rat.ratSettings.CommandStarter + "\" before I got confused.")
 	}
 }
 
 func (rat *ChatRat) isUserTrusted(username string) bool {
-	for _, u := range rat.trustedUsers {
-		if username == u {
-			return true
-		}
-	}
-	return false
+	return contains(rat.ratSettings.TrustedUsers, username)
+}
+
+func (rat *ChatRat) isUserIgnored(username string) bool {
+	return contains(rat.ratSettings.IgnoredUsers, username)
 }
 
 func (rat *ChatRat) speechHandler() {
@@ -351,7 +296,7 @@ func (rat *ChatRat) speechHandler() {
 }
 
 func (rat *ChatRat) writeText(text string) {
-	f, err := os.OpenFile(rat.chatLog, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(rat.ratSettings.ChatLog, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -364,7 +309,7 @@ func (rat *ChatRat) writeText(text string) {
 }
 
 func (rat *ChatRat) loadChatLog() {
-	file, err := os.Open(rat.chatLog)
+	file, err := os.Open(rat.ratSettings.ChatLog)
 	quitnow := false
 	if err != nil {
 		log.Print(err)
