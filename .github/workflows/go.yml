@@ -19,25 +19,25 @@ jobs:
         go-version: 1.17
 
     - name: Build-win
-      run: go build -v ./... -o ChatRat-Windows.exe
+      run: go build -o ChatRat-Windows.exe -v ./...
       env:
         GOOS: windows
         GOARCH: amd64
       
     - name: Build-linux-x86
-      run: go build -v ./... -o ChatRat-Linux-x86
+      run: go build -o ChatRat-Linux-x86 -v ./...
       env:
         GOOS: linux
         GOARCH: amd64
         
-    - name: Build-linux-arm64 -o ChatRat-Linux-arm64
-      run: go build -v ./...
+    - name: Build-linux-arm64
+      run: go build -o ChatRat-Linux-arm64 -v ./...
       env:
         GOOS: linux
         GOARCH: arm64
     
-    - name: Build-linux-arm -o ChatRat-Linux-arm
-      run: go build -v ./...
+    - name: Build-linux-arm
+      run: go build -o ChatRat-Linux-arm -v ./...
       env:
         GOOS: linux
         GOARCH: arm
