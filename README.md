@@ -17,4 +17,4 @@ More to come, just gotta work on it
 Currently two emotes are set to join in a spam, catKiss and heCrazy. 
 
 ## How to run
-Run it in CLI with some of the flags set, `-oauth=oauth:code_here -botname=name_of_twitch_user -stream=name_of_stream_to_join`
+All you need is a folder that has a `settings.json` (see provided example) and an executable in it. You can get the executable by running "go build" or by downloading an executable from one of the releases.
