@@ -49,7 +49,6 @@ func main() {
 	settingsFile := flag.String("settings", "settings.json", "The name of the settings json file")
 	flag.Parse()
 	rat.ratSettings = *NewSettings(*settingsFile)
-	fmt.Println(rat.ratSettings)
 
 	// rat timer settings
 	rat.chatDelay.mu.RLock()
