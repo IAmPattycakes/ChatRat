@@ -24,6 +24,8 @@ type settings struct {
 	emoteSpamCooldown  string   `json:"emoteSpamCooldown"`
 	emoteSentTime      [][]time.Time
 	emoteCleanupMutex  sync.Mutex
+
+	settingsFileName string
 }
 
 func NewSettings(filename string) *settings {
@@ -41,4 +43,20 @@ func (s *settings) loadSettings(filename string) {
 
 	byteValue, _ := ioutil.ReadAll(jsonfile)
 	json.Unmarshal(byteValue, s)
+	s.settingsFileName = filename
+}
+
+func (s *settings) saveSettings() {
+	f, err := os.OpenFile(s.settingsFileName, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
+	str, err := json.Marshal(s)
+	if err != nil {
+		log.Fatal(err)
+	}
+	f.Write(str)
+	if err := f.Close(); err != nil {
+		log.Fatal(err)
+	}
 }
