@@ -1,0 +1,72 @@
+name: Go
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.17
+
+    - name: Build-win
+      run: go build -v ./... -o ChatRat-Windows.exe
+      env:
+        GOOS: windows
+        GOARCH: amd64
+      
+    - name: Build-linux-x86
+      run: go build -v ./... -o ChatRat-Linux-x86
+      env:
+        GOOS: linux
+        GOARCH: amd64
+        
+    - name: Build-linux-arm64 -o ChatRat-Linux-arm64
+      run: go build -v ./...
+      env:
+        GOOS: linux
+        GOARCH: arm64
+    
+    - name: Build-linux-arm -o ChatRat-Linux-arm
+      run: go build -v ./...
+      env:
+        GOOS: linux
+        GOARCH: arm
+        
+    - name: Test
+      run: go test -v ./...
+      
+    - name: Upload-win
+      uses: actions/upload-artifact@v2.3.1
+      with:
+        name: ChatRat-Windows
+        path: ChatRat-Windows.exe
+        
+    - name: Upload-Linux-x86
+      uses: actions/upload-artifact@v2.3.1
+      with:
+        name: ChatRat-Linux-x86
+        path: ChatRat-Linux-x86
+        
+    - name: Upload-Linux-arm64
+      uses: actions/upload-artifact@v2.3.1
+      with:
+        name: ChatRat-Linux-arm64
+        path: ChatRat-Linux-arm64
+        
+
+    - name: Upload-Linux-arm
+      uses: actions/upload-artifact@v2.3.1
+      with:
+        name: ChatRat-Linux-arm
+        path: ChatRat-Linux-arm
+
