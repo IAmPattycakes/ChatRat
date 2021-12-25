@@ -1,5 +1,5 @@
 # ChatRat
-ChatRat is a twitch chat bot built in Go that is a dedicated shitpost machine. Also does some other things, but for now the main thing is just a markov shitpost generator. 
+ChatRat is a twitch chat bot built in Go that is a dedicated shitpost machine. Also does some other things, but for now the main thing is just a markov shitpost generator. He tries to act like a normal member of chat, but isn't the brightest so he can kinda go off the rails sometimes. 
 
 ## Commands
 Commands are permissioned, so only trusted users are allowed to execute them. Currently the commands are: 
@@ -18,3 +18,6 @@ Currently two emotes are set to join in a spam, catKiss and heCrazy.
 
 ## How to run
 All you need is a folder that has a `settings.json` (see provided example) and an executable in it. You can get the executable by running "go build" or by downloading an executable from one of the releases.
+
+## COntributions
+PRs welcome, any features you may want can also go in the issues. Literally anything that sounds good, or funny, is welcome. This isn't really meant to be a practical chatbot, but a thing to make people laugh. 
