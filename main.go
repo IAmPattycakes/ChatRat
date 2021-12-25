@@ -80,7 +80,7 @@ func main() {
 	defer client.Depart(rat.ratSettings.StreamName)
 	rat.speak("Hi chat I'm back! =^.^=")
 	if rat.ratSettings.VerboseLogging {
-		log.Println("Chatrat successfully started in stream " + rat.ratSettings.StreamName + " running as " + rat.ratSettings.BotName)
+		log.Println("Chatrat starting in stream " + rat.ratSettings.StreamName + " running as " + rat.ratSettings.BotName)
 	}
 	go rat.speechHandler()
 	err := client.Connect()
