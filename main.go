@@ -85,6 +85,9 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	if rat.ratSettings.VerboseLogging {
+		log.Println("Chatrat successfully started")
+	}
 }
 
 func (rat *ChatRat) speak(message string) {
@@ -130,6 +133,9 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 		if len(rat.catKisses) > rat.catKissThreshold {
 			if rat.catKissLastTime.Add(rat.catKissCooldown).Before(time.Now()) {
 				rat.speak("catKiss")
+				if rat.ratSettings.VerboseLogging {
+					log.Println("Triggered catKiss emote spam")
+				}
 			}
 		}
 	}
@@ -139,14 +145,24 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 		if len(rat.heCrazies) > rat.heCrazyThreshold {
 			if rat.heCrazyLastTime.Add(rat.heCrazyCooldown).Before(time.Now()) {
 				rat.speak("heCrazy")
+				if rat.ratSettings.VerboseLogging {
+					log.Println("Triggered heCrazy emote spam")
+				}
 			}
 		}
+	}
+
+	if rat.isUserIgnored(message.User.Name) {
+		return
 	}
 
 	messageLength := len(messageStrings)
 	if messageLength <= 0 || messageStrings[0] != rat.ratSettings.CommandStarter {
 		rat.writeText(message.Message)
 		rat.graph.LoadPhrase(message.Message)
+		if rat.ratSettings.VerboseLogging {
+			log.Println("Heard \"" + message.Message + "\" and added it to the model")
+		}
 		return
 	}
 
@@ -225,6 +241,9 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 		rat.chatDelay.mu.RUnlock()
 
 		rat.speak("Alright, I'll stop talking for now")
+		if rat.ratSettings.VerboseLogging {
+			log.Println("Chatrat was stopped by " + message.User.DisplayName)
+		}
 	case "start":
 		rat.chatDelay.mu.RLock()
 		rat.chatDelay.ticker.Reset(rat.chatDelay.duration)
@@ -232,10 +251,16 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 		rat.chatDelay.mu.RUnlock()
 
 		rat.speak("Yay I get to talk again!")
+		if rat.ratSettings.VerboseLogging {
+			log.Println("Chatrat was stopped by " + message.User.DisplayName)
+		}
 	case "ignore":
 		if messageLength > 2 {
 			rat.speak("Sorry @" + messageStrings[2] + ", I can't talk to you anymore")
 			rat.ratSettings.ignoreUser(messageStrings[2])
+			if rat.ratSettings.VerboseLogging {
+				log.Println(message.User.DisplayName + " ignored " + messageStrings[2])
+			}
 			return
 		}
 
@@ -247,6 +272,9 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 		unignored := rat.ratSettings.unignoreUser(messageStrings[2])
 		if unignored {
 			rat.speak("Okay, I'll listen to what @" + messageStrings[2] + " has to say again.")
+			if rat.ratSettings.VerboseLogging {
+				log.Println(message.User.DisplayName + " unignored " + messageStrings[2])
+			}
 		} else {
 			rat.speak("@" + message.User.Name + ", " + messageStrings[2] + " wasn't ignored before.")
 		}
@@ -255,6 +283,9 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 		if messageLength > 2 {
 			rat.speak("Okay @" + messageStrings[2] + ", I'll let you tell me things to do")
 			rat.ratSettings.trustUser(messageStrings[2])
+			if rat.ratSettings.VerboseLogging {
+				log.Println(message.User.DisplayName + " trusted " + messageStrings[2])
+			}
 			return
 		}
 		rat.speak("@" + message.User.Name + " I didn't see a user to trust.")
@@ -265,12 +296,19 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 		untrusted := rat.ratSettings.untrustUser(messageStrings[2])
 		if untrusted {
 			rat.speak("Sorry @" + messageStrings[2] + ", I can't listen to commands from you anymore")
+			if rat.ratSettings.VerboseLogging {
+				log.Println(message.User.DisplayName + " untrusted " + messageStrings[2])
+			}
 		} else {
 			rat.speak("@" + message.User.Name + ", " + messageStrings[2] + " wasn't trusted before.")
 		}
 		rat.speak("Sorry @" + messageStrings[2] + ", I can't listen to commands from you anymore")
 	case "speak":
-		rat.speak(rat.graph.GenerateMarkovString())
+		words := rat.graph.GenerateMarkovString()
+		rat.speak(words)
+		if rat.ratSettings.VerboseLogging {
+			log.Println("Saying \"" + words + "\" after being told to speak")
+		}
 	default:
 		rat.speak("@" + message.User.Name + " I couldn't understand you, I only saw you say \"" + rat.ratSettings.CommandStarter + "\" before I got confused.")
 	}
@@ -289,8 +327,11 @@ func (rat *ChatRat) speechHandler() {
 		if rat.chatDelay.paused {
 			continue
 		}
-
-		rat.speak(rat.graph.GenerateMarkovString())
+		words := rat.graph.GenerateMarkovString()
+		rat.speak(words)
+		if rat.ratSettings.VerboseLogging {
+			log.Println("Saying \"" + words + "from the routine speech handler")
+		}
 	}
 }
 

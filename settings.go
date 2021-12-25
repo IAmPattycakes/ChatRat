@@ -73,19 +73,19 @@ func (s *settings) ignoreUser(username string) {
 }
 
 func (s *settings) untrustUser(username string) bool {
-	removed := removeUserFromList(username, &s.TrustedUsers)
+	removed := removeStringFromList(username, &s.TrustedUsers)
 	s.saveSettings()
 	return removed
 }
 
 func (s *settings) unignoreUser(username string) bool {
-	removed := removeUserFromList(username, &s.IgnoredUsers)
+	removed := removeStringFromList(username, &s.IgnoredUsers)
 	s.saveSettings()
 	return removed
 }
 
 //removeUserFromList creates a new array and sets the list to it. Returns whether or not a user was removed.
-func removeUserFromList(username string, list *[]string) bool {
+func removeStringFromList(username string, list *[]string) bool {
 	arr := make([]string, 0)
 	ret := false
 	for _, v := range *list {
