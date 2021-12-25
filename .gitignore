@@ -1,7 +1,6 @@
 #Default for chat logs
 *.log 
 #Default for user lists
-*.list
 *.json
 #Compiled bilaries
 *.exe
