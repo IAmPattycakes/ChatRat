@@ -79,14 +79,14 @@ func main() {
 	defer client.Disconnect()
 	defer client.Depart(rat.ratSettings.StreamName)
 	rat.speak("Hi chat I'm back! =^.^=")
+	if rat.ratSettings.VerboseLogging {
+		log.Println("Chatrat successfully started in stream " + rat.ratSettings.StreamName + " running as " + rat.ratSettings.BotName)
+	}
 	go rat.speechHandler()
 	err := client.Connect()
 
 	if err != nil {
 		panic(err)
-	}
-	if rat.ratSettings.VerboseLogging {
-		log.Println("Chatrat successfully started")
 	}
 }
 
@@ -278,7 +278,6 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 		} else {
 			rat.speak("@" + message.User.Name + ", " + messageStrings[2] + " wasn't ignored before.")
 		}
-		fmt.Println(rat.ratSettings.IgnoredUsers)
 	case "trust":
 		if messageLength > 2 {
 			rat.speak("Okay @" + messageStrings[2] + ", I'll let you tell me things to do")
@@ -330,7 +329,7 @@ func (rat *ChatRat) speechHandler() {
 		words := rat.graph.GenerateMarkovString()
 		rat.speak(words)
 		if rat.ratSettings.VerboseLogging {
-			log.Println("Saying \"" + words + "from the routine speech handler")
+			log.Println("Saying \"" + words + "\" from the routine speech handler")
 		}
 	}
 }
