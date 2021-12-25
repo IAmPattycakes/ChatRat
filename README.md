@@ -19,5 +19,5 @@ Currently two emotes are set to join in a spam, catKiss and heCrazy.
 ## How to run
 All you need is a folder that has a `settings.json` (see provided example) and an executable in it. You can get the executable by running "go build" or by downloading an executable from one of the releases.
 
-## COntributions
+## Contributions
 PRs welcome, any features you may want can also go in the issues. Literally anything that sounds good, or funny, is welcome. This isn't really meant to be a practical chatbot, but a thing to make people laugh. 
