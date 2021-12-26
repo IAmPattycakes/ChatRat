@@ -1,4 +1,4 @@
-github.com/IAmPattycakes/Go-Markov/v2 v2.0.0-20211219044318-b750c844d937 h1:FXq/ZsT7JHeEfR7WaY/fdAqLIsHgThAeU6yMoA+xdt4=
-github.com/IAmPattycakes/Go-Markov/v2 v2.0.0-20211219044318-b750c844d937/go.mod h1:xJ1e7qQ7xHJTrlSvYHPxyM7vgJ8qXt77tCZdT6DvB4E=
+github.com/IAmPattycakes/Go-Markov v1.0.0 h1:FHhY6E4T+5wy//fy4elIwZrOFHRdNiUGPUcBhkH0cQk=
+github.com/IAmPattycakes/Go-Markov v1.0.0/go.mod h1:0CVXWXuzYH2fEqwcv6gzhQNoxTf3r0oAjC5K+xLAr0E=
 github.com/gempir/go-twitch-irc/v2 v2.8.1 h1:M0Rt2ODGPEk33+UEwv2XSrnGMMwVyUoBt+MNI3ZVf8c=
 github.com/gempir/go-twitch-irc/v2 v2.8.1/go.mod h1:120d2SdlRYg8tRnZwsyNPeS+mWPn+YmNEzB7Bv/CDGE=
