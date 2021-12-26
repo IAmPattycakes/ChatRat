@@ -9,14 +9,15 @@ import (
 )
 
 type settings struct {
-	Oauth          string   `json:"oauth"` //Yeah I know oauth stuff probably shouldn't be sitting in a file naked.
-	BotName        string   `json:"botName"`
-	StreamName     string   `json:"streamName"`
-	TrustedUsers   []string `json:"trustedUsers"`
-	IgnoredUsers   []string `json:"ignoredUsers"`
-	CommandStarter string   `json:"commandStarter"`
-	ChatLog        string   `json:"chatLog"`
-	VerboseLogging bool     `json:"verboseLogging"`
+	Oauth            string   `json:"oauth"` //Yeah I know oauth stuff probably shouldn't be sitting in a file naked.
+	BotName          string   `json:"botName"`
+	StreamName       string   `json:"streamName"`
+	TrustedUsers     []string `json:"trustedUsers"`
+	IgnoredUsers     []string `json:"ignoredUsers"`
+	CommandStarter   string   `json:"commandStarter"`
+	ChatLog          string   `json:"chatLog"`
+	ChatContextDepth int      `json:"chatContextDepth"`
+	VerboseLogging   bool     `json:"verboseLogging"`
 
 	EmotesToSpam       []string `json:"emotesToSpam"`
 	EmoteSpamThreshold int      `json:"emoteSpamThreshold"`

@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	markov "github.com/IAmPattycakes/Go-Markov/v2"
+	markov "github.com/IAmPattycakes/Go-Markov"
 	"github.com/gempir/go-twitch-irc/v2"
 )
 
@@ -56,6 +56,7 @@ func main() {
 	rat.chatDelay.ticker = time.NewTicker(rat.chatDelay.duration)
 	rat.chatDelay.paused = false
 	rat.chatDelay.mu.RUnlock()
+	rat.graph = *markov.NewGraph(rat.ratSettings.ChatContextDepth)
 
 	rat.catKissTimeout = 10 * time.Second
 	rat.catKissThreshold = 3
@@ -233,7 +234,27 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 			rat.chatDelay.duration = dur
 			rat.chatDelay.ticker.Reset(dur)
 			rat.chatDelay.mu.RUnlock()
+		case "contextDepth": //Setting the context depth of the markov chain text generation
+			if messageLength <= 3 {
+				rat.speak(fmt.Sprintf("Current context depth is %d", rat.ratSettings.ChatContextDepth))
+				return
+			}
+			num, err := strconv.ParseInt(messageStrings[3], 10, 0)
+			if err != nil {
+				log.Println("Couldn't read the context depth given. command was \"" + message.Message + "\" error given: " + err.Error())
+				return
+			}
+			if num < 0 {
+				rat.speak("I can't have less than 0 context")
+				return
+			}
+			rat.ratSettings.ChatContextDepth = int(num)
+			rat.speak("@" + message.User.Name + " I'm re-learning what to say, this may take a bit...")
+			rat.graph = *markov.NewGraph(int(num))
+			rat.loadChatLog()
+			rat.speak("Okay I figured out how to talk again")
 		}
+
 	case "stop":
 		rat.chatDelay.mu.RLock()
 		rat.chatDelay.ticker.Stop()
