@@ -7,14 +7,15 @@ Commands are permissioned, so only trusted users are allowed to execute them. Cu
 - `!chatrat start` Starts the constant markov text chatting if it was previously stopped. 
 - `!chatrat set` Sets variables inside of ChatRat. These include: 
     - `delay <non-negative number> <minutes/seconds/hours>` to set the delay between each message of the markov speech
+    - `contextDepth <non-negative integer>` to set the context depth of the markov chain. 
 - `!chatrat trust <username>` Adds a user to the trusted user list, letting them execute commands
 - `!chatrat untrust <username>` Removes a user from the trusted user list
-- `!chatrat ignore <username>` Ignores a user 
-- `!chatrat unignore <username>`
+- `!chatrat ignore <username>` Ignores a user so that their messages are no longer added to the model or the chatlog.  
+- `!chatrat unignore <username>` removes a user from the ignore list. 
 More to come, just gotta work on it
 
 ## Other stuff
-Currently two emotes are set to join in a spam, catKiss and heCrazy. 
+Currently two emotes are set to join in a spam, catKiss and heCrazy. These are not currently very configurable, The only thing you can do is set the threshold/delay/cooldown in the settings.json, but these will be refactored eventually. 
 
 ## How to run
 All you need is a folder that has a `settings.json` (see provided example) and an executable in it. You can get the executable by running "go build" or by downloading an executable from one of the releases.
