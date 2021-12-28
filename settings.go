@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"log"
 	"os"
@@ -24,7 +25,13 @@ type settings struct {
 	EmoteSpamTimeout   string   `json:"emoteSpamTimeout"`
 	EmoteSpamCooldown  string   `json:"emoteSpamCooldown"`
 
-	settingsFileName string
+	BlacklistFileName string `json:"blacklistFileName`
+	blacklist         []string
+	settingsFileName  string
+}
+
+type blacklist struct {
+	Blacklist []string `json:"blacklist"`
 }
 
 func NewSettings(filename string) *settings {
@@ -45,6 +52,19 @@ func (s *settings) loadSettings(filename string) {
 		log.Fatal("Error parsing settings: " + err2.Error())
 	}
 	s.settingsFileName = filename
+
+	var b blacklist
+	blacklistfile, err := os.Open(s.BlacklistFileName)
+	if err != nil {
+		log.Println("Could not open the blacklist, continuing with none.")
+		return
+	}
+	blacklistBytes, _ := ioutil.ReadAll(blacklistfile)
+	blacklistParseError := json.Unmarshal(blacklistBytes, &b)
+	if blacklistParseError != nil {
+		log.Println("Error parsing blacklist. Continuing on with none. Error: " + blacklistParseError.Error())
+	}
+	s.blacklist = b.Blacklist
 }
 
 //saveSettings saves all the JSON parse-able settings into the file listed in settings.settingsFileName
@@ -98,4 +118,20 @@ func removeStringFromList(username string, list *[]string) bool {
 	}
 	*list = arr
 	return ret
+}
+
+//reloadBlacklist reloads the blacklist from the file, returns false if it fails.
+func (s *settings) reloadBlacklist() error {
+	var b blacklist
+	blacklistfile, err := os.Open(s.BlacklistFileName)
+	if err != nil {
+		return errors.New("could not open the blacklist, will not update")
+	}
+	blacklistBytes, _ := ioutil.ReadAll(blacklistfile)
+	blacklistParseError := json.Unmarshal(blacklistBytes, &b)
+	if blacklistParseError != nil {
+		return errors.New("couldn't parse blacklist, not updating currently existing one. Error: " + blacklistParseError.Error())
+	}
+	s.blacklist = b.Blacklist
+	return nil
 }

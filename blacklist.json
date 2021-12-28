@@ -1,0 +1,7 @@
+{
+    "blacklist":[
+        "blacklistword1",
+        "blacklistword2",
+        "blacklistword3"
+    ]
+}
