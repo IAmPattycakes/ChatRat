@@ -175,7 +175,7 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 		return
 	}
 
-	if !rat.isUserTrusted(message.User.Name) {
+	if !rat.isUserTrusted(message.User.Name) && !strings.EqualFold(message.User.Name, rat.ratSettings.StreamName) {
 		rat.speak("Hi I'm ChatRat, I only let trusted people tell me what to do, but I guess you can say my name if you like =^.^=")
 		return
 	}
