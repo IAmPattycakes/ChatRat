@@ -153,7 +153,7 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 		}
 	}
 
-	if rat.isUserIgnored(message.User.Name) {
+	if rat.isUserIgnored(message.User.Name) && !strings.EqualFold(message.User.Name, rat.ratSettings.StreamName) {
 		return
 	}
 
