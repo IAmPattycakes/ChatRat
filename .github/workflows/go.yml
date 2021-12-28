@@ -44,35 +44,22 @@ jobs:
         
     - name: Test
       run: go test -v ./...
-      
-    - name: Latest tag
-      uses: EndBug/latest-tag@v1.4.0
-      with:
-        description: Latest build that passes automatic checks. # optional
-        tag-name: latest # optional, default is latest
-      
-    - name: Upload-win
-      uses: actions/upload-artifact@v2.3.1
-      with:
-        name: ChatRat-Windows
-        path: ChatRat-Windows.exe
         
-    - name: Upload-Linux-x86
-      uses: actions/upload-artifact@v2.3.1
-      with:
-        name: ChatRat-Linux-x86
-        path: ChatRat-Linux-x86
-        
-    - name: Upload-Linux-arm64
-      uses: actions/upload-artifact@v2.3.1
-      with:
-        name: ChatRat-Linux-arm64
-        path: ChatRat-Linux-arm64
-        
+    - name: "Build & test"
+      run: |
+          echo "done!"
 
-    - name: Upload-Linux-arm
-      uses: actions/upload-artifact@v2.3.1
+    - uses: "marvinpinto/action-automatic-releases@latest"
       with:
-        name: ChatRat-Linux-arm
-        path: ChatRat-Linux-arm
+        repo_token: "${{ secrets.GITHUB_TOKEN }}"
+        automatic_release_tag: "latest"
+        prerelease: true
+        title: "Development Build"
+        files: |
+          LICENSE.txt
+          ChatRat-Windows.exe
+          ChatRat-Linux-x86
+          ChatRat-Linux-arm64
+          ChatRat-Linux-arm
+          settings.json
 
