@@ -248,11 +248,22 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 				rat.speak("I can't have less than 0 context")
 				return
 			}
+			//Pause chatting so it doesn't try to talk with a bad/incomplete graph
+			rat.chatDelay.mu.RLock()
+			rat.chatDelay.ticker.Stop()
+			rat.chatDelay.paused = true
+
+			//Set the context depth in the settings,
 			rat.ratSettings.ChatContextDepth = int(num)
 			rat.speak("@" + message.User.Name + " I'm re-learning what to say, this may take a bit...")
 			rat.graph = *markov.NewGraph(int(num))
 			rat.loadChatLog()
 			rat.speak("Okay I figured out how to talk again")
+
+			//Unpause the chatting and release the lock
+			rat.chatDelay.ticker.Reset(rat.chatDelay.duration)
+			rat.chatDelay.paused = false
+			rat.chatDelay.mu.RUnlock()
 		}
 
 	case "stop":
