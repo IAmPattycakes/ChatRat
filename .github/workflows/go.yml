@@ -62,4 +62,5 @@ jobs:
           ChatRat-Linux-arm64
           ChatRat-Linux-arm
           settings.json
+          blacklist.json
 
