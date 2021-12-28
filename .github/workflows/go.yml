@@ -45,6 +45,12 @@ jobs:
     - name: Test
       run: go test -v ./...
       
+    - name: Latest tag
+      uses: EndBug/latest-tag@v1.4.0
+      with:
+        description: Latest build that passes automatic checks. # optional
+        tag-name: latest # optional, default is latest
+      
     - name: Upload-win
       uses: actions/upload-artifact@v2.3.1
       with:
