@@ -56,7 +56,7 @@ jobs:
         prerelease: true
         title: "Development Build"
         files: |
-          LICENSE.txt
+          LICENSE
           ChatRat-Windows.exe
           ChatRat-Linux-x86
           ChatRat-Linux-arm64
