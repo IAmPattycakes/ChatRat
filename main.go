@@ -160,9 +160,13 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 	messageLength := len(messageStrings)
 	if messageLength <= 0 || messageStrings[0] != rat.ratSettings.CommandStarter {
 		rat.writeText(message.Message)
-		rat.graph.LoadPhrase(message.Message)
+		loaded, badword := rat.LoadPhrase(message.Message)
 		if rat.ratSettings.VerboseLogging {
-			log.Println("Heard \"" + message.Message + "\" and added it to the model")
+			if loaded {
+				log.Println("Heard \"" + message.Message + "\" and added it to the model")
+			} else {
+				log.Println("Heard \"" + message.Message + "\" and didn't add it to the model because I saw \"" + badword + "\"")
+			}
 		}
 		return
 	}
@@ -390,7 +394,7 @@ func (rat *ChatRat) loadChatLog() {
 	scanner := bufio.NewScanner(file)
 
 	for scanner.Scan() {
-		rat.graph.LoadPhrase(scanner.Text())
+		rat.LoadPhrase(scanner.Text())
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -413,4 +417,16 @@ func (rat *ChatRat) reloadGraph(depth int) {
 	rat.chatDelay.ticker.Reset(rat.chatDelay.duration)
 	rat.chatDelay.paused = false
 	rat.chatDelay.mu.RUnlock()
+}
+
+// LoadPhrase attemptes to load the phrase into the markov chain. If the phrase has a blacklisted word/phrase in it
+// then the whole phrase gets ignored and the function returns false. If it passes, then returns true.
+func (rat *ChatRat) LoadPhrase(s string) (bool, string) {
+	for _, v := range rat.ratSettings.blacklist {
+		if strings.Contains(strings.ToLower(s), strings.ToLower(v)) {
+			return false, v
+		}
+	}
+	rat.graph.LoadPhrase(s)
+	return true, ""
 }
