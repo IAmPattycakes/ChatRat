@@ -248,22 +248,9 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 				rat.speak("I can't have less than 0 context")
 				return
 			}
-			//Pause chatting so it doesn't try to talk with a bad/incomplete graph
-			rat.chatDelay.mu.RLock()
-			rat.chatDelay.ticker.Stop()
-			rat.chatDelay.paused = true
-
-			//Set the context depth in the settings,
-			rat.ratSettings.ChatContextDepth = int(num)
 			rat.speak("@" + message.User.Name + " I'm re-learning what to say, this may take a bit...")
-			rat.graph = *markov.NewGraph(int(num))
-			rat.loadChatLog()
-			rat.speak("Okay I figured out how to talk again")
-
-			//Unpause the chatting and release the lock
-			rat.chatDelay.ticker.Reset(rat.chatDelay.duration)
-			rat.chatDelay.paused = false
-			rat.chatDelay.mu.RUnlock()
+			rat.reloadGraph(int(num))
+			rat.speak("Okay, I know how to talk again.")
 		}
 
 	case "stop":
@@ -340,6 +327,16 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 		if rat.ratSettings.VerboseLogging {
 			log.Println("Saying \"" + words + "\" after being told to speak")
 		}
+	case "reloadBlacklist":
+		err := rat.ratSettings.reloadBlacklist()
+		if err != nil {
+			rat.speak("I couldn't understand the blacklist anymore")
+			log.Println(err)
+			return
+		}
+		rat.speak("I'm re-learning what to say while ignoring the new bad words. This may take a bit.")
+		rat.reloadGraph(rat.ratSettings.ChatContextDepth)
+		rat.speak("Okay, I know how to talk now.")
 	default:
 		rat.speak("@" + message.User.Name + " I couldn't understand you, I only saw you say \"" + rat.ratSettings.CommandStarter + "\" before I got confused.")
 	}
@@ -399,4 +396,21 @@ func (rat *ChatRat) loadChatLog() {
 	if err := scanner.Err(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func (rat *ChatRat) reloadGraph(depth int) {
+	//Pause chatting so it doesn't try to talk with a bad/incomplete graph
+	rat.chatDelay.mu.RLock()
+	rat.chatDelay.ticker.Stop()
+	rat.chatDelay.paused = true
+
+	//Set the context depth in the settings,
+	rat.ratSettings.ChatContextDepth = int(depth)
+	rat.graph = *markov.NewGraph(depth)
+	rat.loadChatLog()
+
+	//Unpause the chatting and release the lock
+	rat.chatDelay.ticker.Reset(rat.chatDelay.duration)
+	rat.chatDelay.paused = false
+	rat.chatDelay.mu.RUnlock()
 }
