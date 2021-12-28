@@ -7,6 +7,7 @@
     "commandStarter":"!chatrat",
     "chatLog":"chat.log",
     "verboseLogging":true,
+    "chatContextDepth":1,
     "emotesToSpam":["catKiss", "heCrazy"],
     "emoteSpamThreshold":3,
     "emoteSpamTimeout":"10s",
