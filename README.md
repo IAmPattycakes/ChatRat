@@ -5,6 +5,7 @@ ChatRat is a twitch chat bot built in Go that is a dedicated shitpost machine. A
 Commands are permissioned, so only trusted users are allowed to execute them. Currently the commands are: 
 - `!chatrat stop` Stops the constant markov text chatting
 - `!chatrat start` Starts the constant markov text chatting if it was previously stopped. 
+- `!chatrat delay` Shows the current speech delay. 
 - `!chatrat set` Sets variables inside of ChatRat. These include: 
     - `delay <non-negative number> <minutes/seconds/hours>` to set the delay between each message of the markov speech
     - `contextDepth <non-negative integer>` to set the context depth of the markov chain. 
