@@ -223,6 +223,27 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 				rat.emoteLastTime = append(rat.emoteLastTime, time.Now())
 			}
 		}
+		rat.ratSettings.saveSettings()
+		rat.speak("I will now spam " + messageStrings[2] + " with the crowd.")
+		log.Println(message.User.Name + " requested spamming of " + messageStrings[2] + " with the crowd")
+	case "dontspam", "dontSpam", "stopSpamming", "stopspamming":
+		emotestospam := make([]string, 0)
+		emotetimers := make([][]time.Time, 0)
+		emotelasttime := make([]time.Time, 0)
+		if len(messageStrings) > 2 {
+			for i, v := range rat.ratSettings.EmotesToSpam {
+				if v != messageStrings[2] {
+					emotestospam = append(emotestospam, v)
+					emotetimers = append(emotetimers, rat.emoteTimers[i])
+					emotelasttime = append(emotelasttime, rat.emoteLastTime[i])
+				}
+			}
+		}
+		rat.emoteTimers = emotetimers
+		rat.emoteLastTime = emotelasttime
+		rat.ratSettings.EmotesToSpam = emotestospam
+		rat.ratSettings.saveSettings()
+		log.Println(message.User.Name + " requested stopping spammin")
 	default:
 		rat.speak("@" + message.User.Name + " I couldn't understand you, I only saw you say \"" + rat.ratSettings.CommandStarter + "\" before I got confused.")
 	}
