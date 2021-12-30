@@ -25,7 +25,7 @@ type settings struct {
 	EmoteSpamTimeout   string   `json:"emoteSpamTimeout"`
 	EmoteSpamCooldown  string   `json:"emoteSpamCooldown"`
 
-	BlacklistFileName string `json:"blacklistFileName`
+	BlacklistFileName string `json:"blacklistFileName"`
 	blacklist         []string
 	settingsFileName  string
 }
