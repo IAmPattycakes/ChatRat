@@ -18,7 +18,7 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 		if contains(messageStrings, v) {
 			rat.timerCleaner(i)
 			rat.emoteTimers[i] = append(rat.emoteTimers[i], time.Now())
-			if len(rat.emoteTimers[i]) >= rat.ratSettings.EmoteSpamThreshold {
+			if (len(rat.emoteTimers[i]) >= rat.ratSettings.EmoteSpamThreshold) && rat.emoteLastTime[i].Add(rat.emoteSpamCooldown).Before(time.Now()) {
 				rat.speak(v)
 				if rat.ratSettings.VerboseLogging {
 					log.Println("Triggered " + v + " emote spam")
