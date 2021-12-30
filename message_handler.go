@@ -32,6 +32,7 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 	}
 
 	messageLength := len(messageStrings)
+	//Checks if the message is a command. If it's not, then just listen and add it to what can be said if it should be.
 	if messageLength <= 0 || messageStrings[0] != rat.ratSettings.CommandStarter {
 		rat.writeText(message.Message)
 		loaded, badword := rat.LoadPhrase(message.Message)
@@ -215,6 +216,13 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 		rat.speak("I'm re-learning what to say while ignoring the new bad words. This may take a bit.")
 		rat.reloadGraph(rat.ratSettings.ChatContextDepth)
 		rat.speak("Okay, I know how to talk now.")
+	case "spam":
+		if len(messageStrings) > 2 {
+			if !contains(rat.ratSettings.EmotesToSpam, messageStrings[2]) {
+				rat.ratSettings.EmotesToSpam = append(rat.ratSettings.EmotesToSpam, messageStrings[2])
+				rat.emoteLastTime = append(rat.emoteLastTime, time.Now())
+			}
+		}
 	default:
 		rat.speak("@" + message.User.Name + " I couldn't understand you, I only saw you say \"" + rat.ratSettings.CommandStarter + "\" before I got confused.")
 	}

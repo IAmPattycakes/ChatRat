@@ -79,7 +79,6 @@ func main() {
 }
 
 func (rat *ChatRat) speak(message string) {
-	// log.Println("saying" + message)
 	rat.client.Say(rat.ratSettings.StreamName, message)
 }
 
