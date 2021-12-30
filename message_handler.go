@@ -13,27 +13,15 @@ import (
 
 func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 	messageStrings := strings.Split(message.Message, " ")
-	//CatKissies
-	if contains(messageStrings, "catKiss") {
-		rat.catKissCleaner()
-		rat.catKisses = append(rat.catKisses, time.Now())
-		if len(rat.catKisses) > rat.catKissThreshold {
-			if rat.catKissLastTime.Add(rat.catKissCooldown).Before(time.Now()) {
-				rat.speak("catKiss")
+
+	for i, v := range rat.ratSettings.EmotesToSpam {
+		if contains(messageStrings, v) {
+			rat.timerCleaner(i)
+			rat.emoteTimers[i] = append(rat.emoteTimers[i], time.Now())
+			if len(rat.emoteTimers[i]) >= rat.ratSettings.EmoteSpamThreshold {
+				rat.speak(v)
 				if rat.ratSettings.VerboseLogging {
-					log.Println("Triggered catKiss emote spam")
-				}
-			}
-		}
-	}
-	if contains(messageStrings, "heCrazy") {
-		rat.heCrazyCleaner()
-		rat.heCrazies = append(rat.heCrazies, time.Now())
-		if len(rat.heCrazies) > rat.heCrazyThreshold {
-			if rat.heCrazyLastTime.Add(rat.heCrazyCooldown).Before(time.Now()) {
-				rat.speak("heCrazy")
-				if rat.ratSettings.VerboseLogging {
-					log.Println("Triggered heCrazy emote spam")
+					log.Println("Triggered " + v + " emote spam")
 				}
 			}
 		}
@@ -232,28 +220,12 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 	}
 }
 
-func (rat *ChatRat) catKissCleaner() {
-	arr := make([]time.Time, 0)
-	for _, v := range rat.catKisses {
-		if v.Add(rat.catKissTimeout).After(time.Now()) {
-			arr = append(arr, v)
-		}
-	}
-	rat.catKisses = arr
-}
-
-func (rat *ChatRat) heCrazyCleaner() {
-	arr := make([]time.Time, 0)
-	for _, v := range rat.heCrazies {
-		if v.Add(rat.heCrazyTimeout).After(time.Now()) {
-			arr = append(arr, v)
-		}
-	}
-	rat.heCrazies = arr
-}
-
 func (rat *ChatRat) timerCleaner(index int) {
+	arr := make([]time.Time, 0)
 	for _, v := range rat.emoteTimers[index] {
-		log.Println(v)
+		if v.Add(rat.emoteTimeout).After(time.Now()) {
+			arr = append(arr, v)
+		}
 	}
+	rat.emoteTimers[index] = arr
 }

@@ -17,19 +17,11 @@ type ChatRat struct {
 	graph       markov.Graph
 	client      *twitch.Client
 	ratSettings settings
-	emoteTimers [][]time.Time
 
-	catKisses        []time.Time
-	catKissTimeout   time.Duration
-	catKissThreshold int
-	catKissCooldown  time.Duration
-	catKissLastTime  time.Time
-
-	heCrazies        []time.Time
-	heCrazyTimeout   time.Duration
-	heCrazyThreshold int
-	heCrazyCooldown  time.Duration
-	heCrazyLastTime  time.Time
+	emoteTimers       [][]time.Time
+	emoteTimeout      time.Duration
+	emoteLastTime     []time.Time
+	emoteSpamCooldown time.Duration
 
 	chatDelay chatDelay
 }
@@ -56,13 +48,10 @@ func main() {
 	rat.chatDelay.mu.RUnlock()
 	rat.graph = *markov.NewGraph(rat.ratSettings.ChatContextDepth)
 
-	rat.catKissTimeout = 10 * time.Second
-	rat.catKissThreshold = 3
-	rat.catKissCooldown = 1 * time.Minute
-
-	rat.heCrazyTimeout = 10 * time.Second
-	rat.heCrazyThreshold = 3
-	rat.heCrazyCooldown = 1 * time.Minute
+	rat.emoteTimeout = 10 * time.Second
+	rat.emoteSpamCooldown = 1 * time.Minute
+	rat.emoteTimers = make([][]time.Time, len(rat.ratSettings.EmotesToSpam))
+	rat.emoteLastTime = make([]time.Time, len(rat.ratSettings.EmotesToSpam))
 
 	client := twitch.NewClient(rat.ratSettings.BotName, rat.ratSettings.Oauth)
 	rat.client = client
