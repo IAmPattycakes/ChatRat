@@ -67,7 +67,7 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 
 		switch messageStrings[2] {
 		case "delay": //Setting the delay between messages
-			dur, err := durationParse(messageStrings[2:])
+			dur, err := durationParse(messageStrings[3:])
 			if err != nil {
 				rat.speak(err.Error())
 			}
@@ -115,7 +115,7 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 			rat.speak(fmt.Sprintf("I'll join in saying emotes I know after %d people have said them in %s", num, rat.ratSettings.emoteSpamTimeout.String()))
 			rat.ratSettings.saveSettings()
 		case "emoteSpamTimeout":
-			dur, err := durationParse(messageStrings[2:])
+			dur, err := durationParse(messageStrings[3:])
 			if err != nil {
 				rat.speak(err.Error())
 			}
@@ -124,7 +124,7 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 			rat.ratSettings.EmoteSpamTimeout = dur.String()
 			rat.ratSettings.saveSettings()
 		case "emoteSpamCooldown":
-			dur, err := durationParse(messageStrings[2:])
+			dur, err := durationParse(messageStrings[3:])
 			if err != nil {
 				rat.speak(err.Error())
 			}
@@ -276,7 +276,7 @@ func durationParse(message []string) (time.Duration, error) {
 		return dur, nil
 	}
 	//Message length must be 2 or greater now.
-	s, err := strconv.ParseFloat(message[1], 32)
+	s, err := strconv.ParseFloat(message[0], 32)
 	if err != nil {
 		return 9999 * time.Hour, errors.New("couldn't parse " + message[1] + " as a number")
 	}
