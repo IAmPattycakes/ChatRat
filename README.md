@@ -18,6 +18,7 @@ Commands are permissioned, so only trusted users are allowed to execute them. Cu
 - `!chatrat unignore <username>` removes a user from the ignore list. 
 - `!chatrat spam <emote>` adds an emote to spam to the list of mob spamming emotes. 
 - `!chatrat <stopspamming/dontspam> <emote>` removes the emote from the list to mob mentality spam. Either of the two commands work. 
+
 `<duration>` is either one "word" formatted like `<number><letter>`, ex: 5m, 1h, 2m30s or `<number> <unit>` like "1 minute" or "30 seconds" 
 
 ## Other stuff
