@@ -67,53 +67,18 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 
 		switch messageStrings[2] {
 		case "delay": //Setting the delay between messages
-			if messageLength <= 4 {
-				rat.speak("@" + message.User.Name + " I didn't hear any delay from you. I need a number and either hours, minutes, or seconds, like \"3 minutes\" or \"10 seconds\"")
-				return
-			}
-
-			s, err := strconv.ParseFloat(messageStrings[3], 32)
+			dur, err := durationParse(messageStrings[3:])
 			if err != nil {
-				rat.speak("@" + message.User.Name + " I see you're trying to set the delay, but you gave me a weird number. ChatRat doesn't know math very well.")
+				rat.speak(err.Error())
 			}
-
-			if s < 0 {
-				rat.speak("@" + message.User.Name + " I don't understand how a delay can be negative.")
-				return
-			}
-
-			parseTimeExtension := func(message string) (string, error) {
-				switch message {
-				case "seconds", "Seconds", "second", "Second":
-					return "s", nil
-				case "minutes", "Minutes", "minute", "Minute":
-					return "m", nil
-				case "hours", "Hours", "hour", "Hour":
-					return "h", nil
-				default:
-					return "", errors.New("unknown time extension format")
-				}
-			}
-
-			timeExtension, err := parseTimeExtension(messageStrings[4])
-			if err != nil {
-				rat.speak("@" + message.User.Name + "I don't understand what unit of time you're speaking about.")
-				return
-			}
-
-			dur, err := time.ParseDuration(messageStrings[3] + timeExtension)
-			if err != nil {
-				log.Println(err)
-				rat.speak("@" + message.User.Name + " I don't know what went wrong here. Please screenshot what you said and send to the #chatrat channel on the discord.")
-				return
-			}
-
 			rat.chatDelay.mu.RLock()
 			log.Printf("chat delay duration updating from [%s] to [%s]", rat.chatDelay.duration, dur)
 			rat.chatDelay.ticker.Stop()
 			rat.chatDelay.duration = dur
 			rat.chatDelay.ticker.Reset(dur)
 			rat.chatDelay.mu.RUnlock()
+			rat.ratSettings.ChatDelay = dur.String()
+			rat.ratSettings.saveSettings()
 		case "contextDepth": //Setting the context depth of the markov chain text generation
 			if messageLength <= 3 {
 				rat.speak(fmt.Sprintf("Current context depth is %d", rat.ratSettings.ChatContextDepth))
@@ -131,6 +96,42 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 			rat.speak("@" + message.User.Name + " I'm re-learning what to say, this may take a bit...")
 			rat.reloadGraph(int(num))
 			rat.speak("Okay, I know how to talk again.")
+			rat.ratSettings.ChatContextDepth = int(num)
+			rat.ratSettings.saveSettings()
+		case "emoteSpamThreshold":
+			if messageLength <= 3 {
+				rat.speak(fmt.Sprintf("Current emote spam threshold is %d", rat.ratSettings.ChatContextDepth))
+				return
+			}
+			num, err := strconv.ParseInt(messageStrings[3], 10, 0)
+			if err != nil {
+				log.Println("Couldn't read the emote spam threshold given. command was \"" + message.Message + "\" error given: " + err.Error())
+				return
+			}
+			if num < 0 {
+				rat.speak("I will respond after every emote sent I guess")
+			}
+			rat.ratSettings.EmoteSpamThreshold = int(num)
+			rat.speak(fmt.Sprintf("I'll join in saying emotes I know after %d people have said them in %s", num, rat.ratSettings.emoteSpamTimeout.String()))
+			rat.ratSettings.saveSettings()
+		case "emoteSpamTimeout":
+			dur, err := durationParse(messageStrings[3:])
+			if err != nil {
+				rat.speak(err.Error())
+			}
+			rat.speak(fmt.Sprintf("emote spam timeout changed from [%s] to [%s]", rat.ratSettings.emoteSpamTimeout, dur.String()))
+			rat.ratSettings.emoteSpamTimeout = dur
+			rat.ratSettings.EmoteSpamTimeout = dur.String()
+			rat.ratSettings.saveSettings()
+		case "emoteSpamCooldown":
+			dur, err := durationParse(messageStrings[3:])
+			if err != nil {
+				rat.speak(err.Error())
+			}
+			rat.speak(fmt.Sprintf("emote spam cooldown changed from [%s] to [%s]", rat.ratSettings.emoteSpamTimeout, dur.String()))
+			rat.ratSettings.emoteSpamCooldown = dur
+			rat.ratSettings.EmoteSpamCooldown = dur.String()
+			rat.ratSettings.saveSettings()
 		}
 
 	case "stop":
@@ -260,4 +261,47 @@ func (rat *ChatRat) timerCleaner(index int) {
 		}
 	}
 	rat.emoteTimers[index] = arr
+}
+
+func durationParse(message []string) (time.Duration, error) {
+	messageLength := len(message)
+	if messageLength == 0 {
+		return 9999 * time.Hour, errors.New("no input to duration parser")
+	}
+	if messageLength == 1 {
+		dur, err := time.ParseDuration(message[0])
+		if err != nil {
+			return 9999 * time.Hour, errors.New("improperly formatted duration string")
+		}
+		return dur, nil
+	}
+	//Message length must be 2 or greater now.
+	s, err := strconv.ParseFloat(message[0], 32)
+	if err != nil {
+		return 9999 * time.Hour, errors.New("couldn't parse " + message[1] + " as a number")
+	}
+
+	if s < 0 {
+		return 9999 * time.Hour, errors.New("negative durations don't make sense in this context")
+	}
+
+	parseTimeExtension := func(message string) (string, error) {
+		switch message {
+		case "seconds", "Seconds", "second", "Second":
+			return "s", nil
+		case "minutes", "Minutes", "minute", "Minute":
+			return "m", nil
+		case "hours", "Hours", "hour", "Hour":
+			return "h", nil
+		default:
+			return "", errors.New("unknown time extension format")
+		}
+	}
+	timeExtension, err := parseTimeExtension(message[1])
+	if err != nil {
+		return 9999 * time.Hour, errors.New(message[1] + " is not a valid unit of time")
+	}
+
+	dur, err := time.ParseDuration(message[0] + timeExtension)
+	return dur, err
 }
