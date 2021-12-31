@@ -243,7 +243,8 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 		rat.emoteLastTime = emotelasttime
 		rat.ratSettings.EmotesToSpam = emotestospam
 		rat.ratSettings.saveSettings()
-		log.Println(message.User.Name + " requested stopping spammin")
+		rat.speak("Okay, I'll stop spamming " + messageStrings[2] + " with the crowd.")
+		log.Println(message.User.Name + " requested stopping spamming of " + messageStrings[2])
 	default:
 		rat.speak("@" + message.User.Name + " I couldn't understand you, I only saw you say \"" + rat.ratSettings.CommandStarter + "\" before I got confused.")
 	}

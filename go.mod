@@ -1,4 +1,4 @@
-module git.droppedtable.tech/pgroh/twitch-bot
+module github.com/IAmPattycakes/ChatRat
 
 go 1.17
 
