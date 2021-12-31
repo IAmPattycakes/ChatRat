@@ -23,6 +23,7 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 				if rat.ratSettings.VerboseLogging {
 					log.Println("Triggered " + v + " emote spam")
 				}
+				rat.emoteLastTime[i] = time.Now()
 			}
 		}
 	}
@@ -220,6 +221,7 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 		if len(messageStrings) > 2 {
 			if !contains(rat.ratSettings.EmotesToSpam, messageStrings[2]) {
 				rat.ratSettings.EmotesToSpam = append(rat.ratSettings.EmotesToSpam, messageStrings[2])
+				rat.emoteTimers = append(rat.emoteTimers, make([]time.Time, 0))
 				rat.emoteLastTime = append(rat.emoteLastTime, time.Now())
 			}
 		}
