@@ -13,10 +13,12 @@ Commands are permissioned, so only trusted users are allowed to execute them. Cu
 - `!chatrat untrust <username>` Removes a user from the trusted user list
 - `!chatrat ignore <username>` Ignores a user so that their messages are no longer added to the model or the chatlog.  
 - `!chatrat unignore <username>` removes a user from the ignore list. 
+- `!chatrat spam <emote>` adds an emote to spam to the list of mob spamming emotes. 
+- `!chatrat <stopspamming/dontspam> <emote>` removes the emote from the list to mob mentality spam. Either of the two commands work. 
 More to come, just gotta work on it
 
 ## Other stuff
-Currently two emotes are set to join in a spam, catKiss and heCrazy. These are not currently very configurable, The only thing you can do is set the threshold/delay/cooldown in the settings.json, but these will be refactored eventually. 
+ChatRat will join in on emote spamming, so if a whole bunch of people are saying an emote he is configured to also speak, he will do so. The example settings file has catKiss and heCrazy as the emotes to spam, but more can be added/removed there or with the commands. 
 
 ## How to run
 All you need is a folder that has a `settings.json` (see provided example) and an executable in it. You can get the executable by running "go build" or by downloading an executable from one of the releases. A better guide can be seen on the wiki https://github.com/IAmPattycakes/ChatRat/wiki
