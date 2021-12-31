@@ -119,9 +119,19 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 			if err != nil {
 				rat.speak(err.Error())
 			}
-			rat.speak("emote spam timeout changed from ")
+			rat.speak(fmt.Sprintf("emote spam timeout changed from [%s] to [%s]", rat.ratSettings.emoteSpamTimeout, dur.String()))
 			rat.ratSettings.emoteSpamTimeout = dur
 			rat.ratSettings.EmoteSpamTimeout = dur.String()
+			rat.ratSettings.saveSettings()
+		case "emoteSpamCooldown":
+			dur, err := durationParse(messageStrings[2:])
+			if err != nil {
+				rat.speak(err.Error())
+			}
+			rat.speak(fmt.Sprintf("emote spam cooldown changed from [%s] to [%s]", rat.ratSettings.emoteSpamTimeout, dur.String()))
+			rat.ratSettings.emoteSpamCooldown = dur
+			rat.ratSettings.EmoteSpamCooldown = dur.String()
+			rat.ratSettings.saveSettings()
 		}
 
 	case "stop":
