@@ -39,14 +39,14 @@ func main() {
 	settingsFile := flag.String("settings", "settings.json", "The name of the settings json file")
 	flag.Parse()
 	rat.ratSettings = *NewSettings(*settingsFile)
+	rat.graph = *markov.NewGraph(rat.ratSettings.ChatContextDepth)
 
 	// rat timer settings
 	rat.chatDelay.mu.RLock()
-	rat.chatDelay.duration = 2 * time.Minute
+	rat.chatDelay.duration = rat.ratSettings.chatDelay
 	rat.chatDelay.ticker = time.NewTicker(rat.chatDelay.duration)
 	rat.chatDelay.paused = false
 	rat.chatDelay.mu.RUnlock()
-	rat.graph = *markov.NewGraph(rat.ratSettings.ChatContextDepth)
 
 	rat.emoteTimeout = 10 * time.Second
 	rat.emoteSpamCooldown = 1 * time.Minute

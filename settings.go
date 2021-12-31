@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 )
 
 type settings struct {
@@ -19,11 +20,15 @@ type settings struct {
 	ChatLog          string   `json:"chatLog"`
 	ChatContextDepth int      `json:"chatContextDepth"`
 	VerboseLogging   bool     `json:"verboseLogging"`
+	ChatDelay        string   `json:"chatDelay"`
+	chatDelay        time.Duration
 
 	EmotesToSpam       []string `json:"emotesToSpam"`
 	EmoteSpamThreshold int      `json:"emoteSpamThreshold"`
 	EmoteSpamTimeout   string   `json:"emoteSpamTimeout"`
 	EmoteSpamCooldown  string   `json:"emoteSpamCooldown"`
+	emoteSpamTimeout   time.Duration
+	emoteSpamCooldown  time.Duration
 
 	BlacklistFileName string `json:"blacklistFileName"`
 	blacklist         []string
@@ -57,14 +62,37 @@ func (s *settings) loadSettings(filename string) {
 	blacklistfile, err := os.Open(s.BlacklistFileName)
 	if err != nil {
 		log.Println("Could not open the blacklist, continuing with none.")
-		return
+	} else {
+		blacklistBytes, _ := ioutil.ReadAll(blacklistfile)
+		blacklistParseError := json.Unmarshal(blacklistBytes, &b)
+		if blacklistParseError != nil {
+			log.Println("Error parsing blacklist. Continuing on with none. " + blacklistParseError.Error())
+			s.blacklist = make([]string, 0)
+		} else {
+			s.blacklist = b.Blacklist
+		}
 	}
-	blacklistBytes, _ := ioutil.ReadAll(blacklistfile)
-	blacklistParseError := json.Unmarshal(blacklistBytes, &b)
-	if blacklistParseError != nil {
-		log.Println("Error parsing blacklist. Continuing on with none. Error: " + blacklistParseError.Error())
+	timeout, err := time.ParseDuration(s.EmoteSpamTimeout)
+	if err != nil {
+		log.Println("Error parsing emote spam timeout. Continuing with default 10s")
+		s.emoteSpamTimeout = 10 * time.Second
+	} else {
+		s.emoteSpamTimeout = timeout
 	}
-	s.blacklist = b.Blacklist
+	cooldown, err := time.ParseDuration(s.EmoteSpamCooldown)
+	if err != nil {
+		log.Println("Error parsing emote spam cooldown. Continuing with default 1m")
+		s.emoteSpamCooldown = 1 * time.Minute
+	} else {
+		s.emoteSpamCooldown = cooldown
+	}
+	delay, err := time.ParseDuration(s.ChatDelay)
+	if err != nil {
+		log.Println("Error parsing chat delay. Continuing with default 2m")
+		s.chatDelay = 2 * time.Minute
+	} else {
+		s.chatDelay = delay
+	}
 }
 
 //saveSettings saves all the JSON parse-able settings into the file listed in settings.settingsFileName
