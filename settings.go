@@ -61,11 +61,11 @@ func (s *settings) loadSettings(filename string) {
 	//In twitch the usernames are all lowercase in the backend. If the settings file includes names with uppercase characters, turn them lower. 
 	s.BotName = strings.ToLower(s.BotName)
 	s.StreamName = strings.ToLower(s.StreamName)
-	for i, v := s.TrustedUsers {
+	for i, v := range s.TrustedUsers {
 		s.TrustedUsers[i] = strings.ToLower(v)	
 	}
 	
-	for i, v := s.IgnoredUsers {
+	for i, v := range s.IgnoredUsers {
 		s.IgnoredUsers[i] = strings.ToLower(v)	
 	}
 
