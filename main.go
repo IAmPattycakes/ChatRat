@@ -109,10 +109,13 @@ func (rat *ChatRat) speechHandler() {
 		if rat.chatDelay.paused {
 			continue
 		}
-		words := rat.graph.GenerateMarkovString()
-		rat.speak(words)
-		if rat.ratSettings.VerboseLogging {
-			log.Println("Saying \"" + words + "\" from the routine speech handler")
+		spoken := false
+		for !spoken {
+			words := rat.graph.GenerateMarkovString()
+			spoken := rat.speak(words)
+			if spoken && rat.ratSettings.VerboseLogging {
+				log.Println("Saying \"" + words + "\" from the routine speech handler")
+			}
 		}
 	}
 }
