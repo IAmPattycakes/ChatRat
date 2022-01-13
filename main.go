@@ -78,8 +78,13 @@ func main() {
 	}
 }
 
-func (rat *ChatRat) speak(message string) {
+//speak checks to see if the message given is able to be said in chat, says it, and returns true if it can. Returns false if it can't. 
+func (rat *ChatRat) speak(message string) bool {
+	if len(message) > 512 {
+		return false	
+	}
 	rat.client.Say(rat.ratSettings.StreamName, message)
+	return true
 }
 
 func contains(s []string, e string) bool {
