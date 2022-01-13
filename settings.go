@@ -57,6 +57,17 @@ func (s *settings) loadSettings(filename string) {
 		log.Fatal("Error parsing settings: " + err2.Error())
 	}
 	s.settingsFileName = filename
+	
+	//In twitch the usernames are all lowercase in the backend. If the settings file includes names with uppercase characters, turn them lower. 
+	s.BotName = strings.ToLower(s.BotName)
+	s.StreamName = strings.ToLower(s.StreamName)
+	for i, v := s.TrustedUsers {
+		s.TrustedUsers[i] = strings.ToLower(v)	
+	}
+	
+	for i, v := s.IgnoredUsers {
+		s.IgnoredUsers[i] = strings.ToLower(v)	
+	}
 
 	var b blacklist
 	blacklistfile, err := os.Open(s.BlacklistFileName)
@@ -133,7 +144,7 @@ func (s *settings) unignoreUser(username string) bool {
 	return removed
 }
 
-//removeUserFromList creates a new array and sets the list to it. Returns whether or not a user was removed.
+//removeStringFromList creates a new array without the input and sets the list to it. Returns whether or not an element was removed.
 func removeStringFromList(username string, list *[]string) bool {
 	arr := make([]string, 0)
 	ret := false
