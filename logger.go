@@ -3,13 +3,13 @@ package main
 import (
 	"log"
 	"os"
+	"fmt"
 )
 
 type LogType uint8
 const (
 	Console LogType = 1 << iota
-	File
-	
+	File //Any IO writer. Basically just uses a non-default logger. 
 )
 
 type LogSeverity int
@@ -31,7 +31,7 @@ type RatLogger struct {
 }
 
 type LogPacket struct {
-	Severity LogSeverity
+	severity LogSeverity
 	content  string
 }
 
@@ -52,8 +52,35 @@ func NewLogger(logtype LogType, filename string, logLevel LogSeverity) *RatLogge
 	return &l
 }
 
-func (l *RatLogger) HandleLogs() {
-	
+func (l RatLogger) HandleLogs() {
+	for m := range l.LogChannel {
+		if m.severity >= l.logLevel {
+			if l.logType&Console {
+				log.Println(fmt.Sprintf("%s: %s" sevToStr(m.severity), m.content))
+			}
+			if l.logType&File {
+				l.logger.Println(fmt.Sprintf("%s: %s" sevToStr(m.severity), m.content))
+			}
+		}
+	}
+}
+
+func (l RatLogger) Log(sev LogSeverity, m string) {
+	l.LogChannel <- LogPacket {sev, m}
+}
+
+func sevToStr(s LogSeverity) string {
+	switch s {
+		case Debug:
+			return "DEBUG"
+		case Info:
+			return "INFO"
+		case Warning:
+			return "WARNING"
+		case Critical:
+			return "CRITICAL"
+	}
+	return "UNKNOWN"
 }
 
 func (l *RatLogger) Close() {
