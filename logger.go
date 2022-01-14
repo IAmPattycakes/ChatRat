@@ -26,7 +26,7 @@ type RatLogger struct {
 	filename    string
 	LogChannel  chan LogPacket
 	logLevel    LogSeverity
-	logger      Logger
+	logger      log.Logger
 	file        os.File
 }
 
@@ -35,7 +35,7 @@ type LogPacket struct {
 	content  string
 }
 
-func NewLogger(logtype LogType, filename string, logLevel logSeverity) *RatLogger {
+func NewLogger(logtype LogType, filename string, logLevel LogSeverity) *RatLogger {
 	var l RatLogger
 	l.loggerType = logtype
 	l.filename = filename
@@ -49,6 +49,7 @@ func NewLogger(logtype LogType, filename string, logLevel logSeverity) *RatLogge
 
 	log.SetOutput(f)
 	log.Println("This is a test log entry")
+	return &l
 }
 
 func (l *RatLogger) HandleLogs() {
