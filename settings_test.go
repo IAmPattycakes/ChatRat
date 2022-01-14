@@ -24,8 +24,8 @@ func TestTrust(t *testing.T) {
 func TestUntrustUser(t *testing.T) {
 	s := NewSettings("settings.json")
 	oldTrusted := s.TrustedUsers
-	s.trustUser("NewTrustedUser") //gets tested in TestTrust
-	s.untrustUser("NewTrustedUser")
+	s.trustUser("SecondTrustedUser") //gets tested in TestTrust
+	s.untrustUser("SecondTrustedUser")
 	if len(s.TrustedUsers) != len(oldTrusted) {
 		t.Errorf("Trusted array was %d long, but should have been %d long", len(s.TrustedUsers), len(oldTrusted))	
 	}
@@ -68,8 +68,8 @@ func TestIgnore(t *testing.T) {
 func TestUnignoreUser(t *testing.T) {
 	s := NewSettings("settings.json")
 	oldIgnored := s.IgnoredUsers
-	s.ignoreUser("NewIgnoredUser") //gets tested in TestIgnore
-	s.unignoreUser("NewIgnoredUser")
+	s.ignoreUser("AnotherIgnoredUser") //gets tested in TestIgnore
+	s.unignoreUser("AnotherIgnoredUser")
 	if len(s.IgnoredUsers) != len(oldIgnored) {
 		t.Errorf("Ignored array was %d long, but should have been %d long", len(s.IgnoredUsers), len(oldIgnored))	
 	}
