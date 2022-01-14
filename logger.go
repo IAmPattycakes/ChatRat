@@ -56,10 +56,10 @@ func (l RatLogger) HandleLogs() {
 	for m := range l.LogChannel {
 		if m.severity >= l.logLevel {
 			if l.logType&Console {
-				log.Println(fmt.Sprintf("%s: %s" sevToStr(m.severity), m.content))
+				log.Println(fmt.Sprintf("%s: %s", sevToStr(m.severity), m.content))
 			}
 			if l.logType&File {
-				l.logger.Println(fmt.Sprintf("%s: %s" sevToStr(m.severity), m.content))
+				l.logger.Println(fmt.Sprintf("%s: %s", sevToStr(m.severity), m.content))
 			}
 		}
 	}
