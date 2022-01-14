@@ -13,5 +13,7 @@
     "emoteSpamThreshold":3,
     "emoteSpamTimeout":"10s",
     "emoteSpamCooldown":"1m",
-    "blacklistFileName":"blacklist.json"
+    "blacklistFileName":"blacklist.json",
+    "logFile":"bot.log",
+    "logLevel":"INFO"
 }
