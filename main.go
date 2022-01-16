@@ -48,8 +48,6 @@ func main() {
 	rat.chatDelay.paused = false
 	rat.chatDelay.mu.RUnlock()
 
-	rat.emoteTimeout = 10 * time.Second
-	rat.emoteSpamCooldown = 1 * time.Minute
 	rat.emoteTimers = make([][]time.Time, len(rat.ratSettings.EmotesToSpam))
 	rat.emoteLastTime = make([]time.Time, len(rat.ratSettings.EmotesToSpam))
 
@@ -78,10 +76,10 @@ func main() {
 	}
 }
 
-//speak checks to see if the message given is able to be said in chat, says it, and returns true if it can. Returns false if it can't. 
+//speak checks to see if the message given is able to be said in chat, says it, and returns true if it can. Returns false if it can't.
 func (rat *ChatRat) speak(message string) bool {
 	if len(message) > 512 {
-		return false	
+		return false
 	}
 	rat.client.Say(rat.ratSettings.StreamName, message)
 	return true
@@ -112,7 +110,7 @@ func (rat *ChatRat) speechHandler() {
 		spoken := false
 		for !spoken {
 			words := rat.graph.GenerateMarkovString()
-			spoken := rat.speak(words)
+			spoken = rat.speak(words)
 			if spoken && rat.ratSettings.VerboseLogging {
 				log.Println("Saying \"" + words + "\" from the routine speech handler")
 			}
