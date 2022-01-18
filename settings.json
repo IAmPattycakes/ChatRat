@@ -7,7 +7,6 @@
     "commandStarter":"!chatrat",
     "chatLog":"chat.log",
     "chatDelay":"2m",
-    "verboseLogging":true,
     "chatContextDepth":1,
     "emotesToSpam":["catKiss", "heCrazy"],
     "emoteSpamThreshold":3,
@@ -15,5 +14,6 @@
     "emoteSpamCooldown":"1m",
     "blacklistFileName":"blacklist.json",
     "logFile":"bot.log",
-    "logLevel":"INFO"
+    "logLevel":"INFO",
+    "logType":"Both"
 }
