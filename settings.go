@@ -65,13 +65,13 @@ func (s *settings) loadSettings(filename string) {
 	}
 	s.settingsFileName = filename
 	
-	switch strings.ToLower(LogType) {
+	switch strings.ToLower(s.LogType) {
 	case "console": logType := Console
 	case "file": logType := File
 	case "both": logType := File|Console
 	default: logType := File&Console //No logger
 	}
-	switch strings.ToLower(LogLevel) {
+	switch strings.ToLower(s.LogLevel) {
 	case "debug": logLevel := Debug
 	case "info": logLevel := Info
 	case "warning": logLevel := Warning
