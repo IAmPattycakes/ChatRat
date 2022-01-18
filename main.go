@@ -41,7 +41,7 @@ func main() {
 	flag.Parse()
 	rat.ratSettings = *NewSettings(*settingsFile)
 	rat.graph = *markov.NewGraph(rat.ratSettings.ChatContextDepth)
-	rat.logger = NewLogger(rat.ratSettings.logType, rat.ratSettings.LogName, rat.ratSettings.logLevel)
+	rat.logger = *NewLogger(rat.ratSettings.logType, rat.ratSettings.LogName, rat.ratSettings.logLevel)
 	go rat.logger.HandleLogs()
 
 	//Timer settings
