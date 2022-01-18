@@ -33,6 +33,13 @@ type settings struct {
 	BlacklistFileName string `json:"blacklistFileName"`
 	blacklist         []string
 	settingsFileName  string
+	
+	LogType  string `json:"logType"`
+	LogLevel string `json:"logLevel"`
+	LogName  string `json:"logName"`
+	logType  LogType
+	logLevel LogSeverity
+	
 }
 
 type blacklist struct {
@@ -57,6 +64,20 @@ func (s *settings) loadSettings(filename string) {
 		log.Fatal("Error parsing settings: " + err2.Error())
 	}
 	s.settingsFileName = filename
+	
+	switch strings.ToLower(LogType) {
+	case "console": logType := Console
+	case "file": logType := File
+	case "both": logType := File|Console
+	default: logType := File&Console //No logger
+	}
+	switch strings.ToLower(LogLevel) {
+	case "debug": logLevel := Debug
+	case "info": logLevel := Info
+	case "warning": logLevel := Warning
+	case "critical": logLevel := Critical
+	default: logLevel := Info
+	}
 	
 	//In twitch the usernames are all lowercase in the backend. If the settings file includes names with uppercase characters, turn them lower. 
 	s.BotName = strings.ToLower(s.BotName)
