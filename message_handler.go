@@ -204,7 +204,11 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 		rat.speak("Sorry @" + messageStrings[2] + ", I can't listen to commands from you anymore")
 	case "speak":
 		words := rat.graph.GenerateMarkovString()
-		rat.speak(words)
+		spoken := rat.speak(words)
+		for !spoken {
+			words = rat.graph.GenerateMarkovString()
+			spoken = rat.speak(words)
+		}
 		if rat.ratSettings.VerboseLogging {
 			log.Println("Saying \"" + words + "\" after being told to speak")
 		}
