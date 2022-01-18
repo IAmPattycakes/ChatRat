@@ -46,7 +46,7 @@ func NewLogger(logtype LogType, filename string, logLevel LogSeverity) *RatLogge
 		if err != nil {
 			log.Fatalf("error opening file: %v", err)
 		}
-		l.logger := log.New(f, "", Ldate | Ltime)
+		l.logger := log.New(f, "", log.Ldate | log.Ltime)
 	}
 	
 	return &l
