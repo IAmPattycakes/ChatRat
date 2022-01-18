@@ -55,10 +55,10 @@ func NewLogger(logtype LogType, filename string, logLevel LogSeverity) *RatLogge
 func (l RatLogger) HandleLogs() {
 	for m := range l.LogChannel {
 		if m.severity >= l.logLevel {
-			if l.loggerType&Console {
+			if l.loggerType&Console > 0 {
 				log.Println(fmt.Sprintf("%s: %s", sevToStr(m.severity), m.content))
 			}
-			if l.loggerType&File {
+			if l.loggerType&File > 0 {
 				l.logger.Println(fmt.Sprintf("%s: %s", sevToStr(m.severity), m.content))
 			}
 		}
