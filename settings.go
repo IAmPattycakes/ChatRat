@@ -19,7 +19,6 @@ type settings struct {
 	CommandStarter   string   `json:"commandStarter"`
 	ChatLog          string   `json:"chatLog"`
 	ChatContextDepth int      `json:"chatContextDepth"`
-	VerboseLogging   bool     `json:"verboseLogging"`
 	ChatDelay        string   `json:"chatDelay"`
 	chatDelay        time.Duration
 
