@@ -41,7 +41,7 @@ func main() {
 	flag.Parse()
 	rat.ratSettings = *NewSettings(*settingsFile)
 	rat.graph = *markov.NewGraph(rat.ratSettings.ChatContextDepth)
-	rat.logger := NewLogger(rat.ratSettings.logType, rat.ratSettings.LogName, rat.RatSettings.logLevel)
+	rat.logger = NewLogger(rat.ratSettings.logType, rat.ratSettings.LogName, rat.ratSettings.logLevel)
 	go rat.logger.HandleLogs()
 
 	//Timer settings
@@ -69,7 +69,7 @@ func main() {
 	defer client.Disconnect()
 	defer client.Depart(rat.ratSettings.StreamName)
 	rat.speak("Hi chat I'm back! =^.^=")
-	rat.logger.log(Info, "Chatrat starting in stream " + rat.ratSettings.StreamName + " running as " + rat.ratSettings.BotName)
+	rat.logger.Log(Info, "Chatrat starting in stream " + rat.ratSettings.StreamName + " running as " + rat.ratSettings.BotName)
 
 	go rat.speechHandler()
 	err := client.Connect()
