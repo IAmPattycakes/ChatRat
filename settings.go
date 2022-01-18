@@ -19,7 +19,6 @@ type settings struct {
 	CommandStarter   string   `json:"commandStarter"`
 	ChatLog          string   `json:"chatLog"`
 	ChatContextDepth int      `json:"chatContextDepth"`
-	VerboseLogging   bool     `json:"verboseLogging"`
 	ChatDelay        string   `json:"chatDelay"`
 	chatDelay        time.Duration
 
@@ -33,6 +32,13 @@ type settings struct {
 	BlacklistFileName string `json:"blacklistFileName"`
 	blacklist         []string
 	settingsFileName  string
+	
+	LogType  string `json:"logType"`
+	LogLevel string `json:"logLevel"`
+	LogName  string `json:"logName"`
+	logType  LogType
+	logLevel LogSeverity
+	
 }
 
 type blacklist struct {
@@ -57,6 +63,20 @@ func (s *settings) loadSettings(filename string) {
 		log.Fatal("Error parsing settings: " + err2.Error())
 	}
 	s.settingsFileName = filename
+	
+	switch strings.ToLower(s.LogType) {
+	case "console": s.logType = Console
+	case "file": s.logType = File
+	case "both": s.logType = File|Console
+	default: s.logType = File&Console //No logger
+	}
+	switch strings.ToLower(s.LogLevel) {
+	case "debug": s.logLevel = Debug
+	case "info": s.logLevel = Info
+	case "warning": s.logLevel = Warning
+	case "critical": s.logLevel = Critical
+	default: s.logLevel = Info
+	}
 	
 	//In twitch the usernames are all lowercase in the backend. If the settings file includes names with uppercase characters, turn them lower. 
 	s.BotName = strings.ToLower(s.BotName)

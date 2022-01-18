@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"strings"
@@ -24,6 +25,7 @@ type ChatRat struct {
 	emoteSpamCooldown time.Duration
 
 	chatDelay chatDelay
+	logger RatLogger
 }
 
 type chatDelay struct {
@@ -40,34 +42,42 @@ func main() {
 	flag.Parse()
 	rat.ratSettings = *NewSettings(*settingsFile)
 	rat.graph = *markov.NewGraph(rat.ratSettings.ChatContextDepth)
+	rat.logger = *NewLogger(rat.ratSettings.logType, rat.ratSettings.LogName, rat.ratSettings.logLevel)
+	go rat.logger.HandleLogs()
+	defer rat.logger.Close()
 
-	// rat timer settings
+	//Timer settings
 	rat.chatDelay.mu.RLock()
 	rat.chatDelay.duration = rat.ratSettings.chatDelay
 	rat.chatDelay.ticker = time.NewTicker(rat.chatDelay.duration)
 	rat.chatDelay.paused = false
+	rat.log(Debug, fmt.Sprintf("Setting new chat delay to %s", rat.ratSettings.chatDelay.String()))
 	rat.chatDelay.mu.RUnlock()
 
+	//Emote spam settings
+	rat.emoteTimeout = rat.ratSettings.emoteSpamTimeout
+	rat.emoteSpamCooldown = rat.ratSettings.emoteSpamCooldown
 	rat.emoteTimers = make([][]time.Time, len(rat.ratSettings.EmotesToSpam))
 	rat.emoteLastTime = make([]time.Time, len(rat.ratSettings.EmotesToSpam))
+	rat.log(Debug, fmt.Sprintf("Setting emoteTimeout to %s and emoteSpamCooldown to %s", rat.ratSettings.emoteSpamTimeout.String(), rat.ratSettings.emoteSpamCooldown.String()))
 
 	client := twitch.NewClient(rat.ratSettings.BotName, rat.ratSettings.Oauth)
 	rat.client = client
 	rat.client.OnPrivateMessage(func(message twitch.PrivateMessage) {
-		if message.User.Name != "chatrat_" {
-			rat.messageParser(message)
-		}
+		rat.log(Debug, fmt.Sprintf("Passing message to messageParser, raw: %s", message.Raw))
+		rat.messageParser(message)
 	})
 	//Loading the chat history to give the model something to go off of at the start.
+	rat.log(Debug, fmt.Sprintf("Starting loading chat log at %s", time.Now().String()))
 	rat.loadChatLog()
+	rat.log(Debug, fmt.Sprintf("Finished loading chat log at %s", time.Now().String()))
 
 	client.Join(rat.ratSettings.StreamName)
 	defer client.Disconnect()
 	defer client.Depart(rat.ratSettings.StreamName)
 	rat.speak("Hi chat I'm back! =^.^=")
-	if rat.ratSettings.VerboseLogging {
-		log.Println("Chatrat starting in stream " + rat.ratSettings.StreamName + " running as " + rat.ratSettings.BotName)
-	}
+	rat.logger.Log(Info, "Chatrat starting in stream " + rat.ratSettings.StreamName + " running as " + rat.ratSettings.BotName)
+
 	go rat.speechHandler()
 	err := client.Connect()
 
@@ -79,10 +89,15 @@ func main() {
 //speak checks to see if the message given is able to be said in chat, says it, and returns true if it can. Returns false if it can't.
 func (rat *ChatRat) speak(message string) bool {
 	if len(message) > 512 {
+		rat.log(Debug, fmt.Sprintf("Failed to speak message: %s, too long", message))
 		return false
 	}
 	rat.client.Say(rat.ratSettings.StreamName, message)
 	return true
+}
+
+func (rat *ChatRat) log(sev LogSeverity, m string) {
+	rat.logger.Log(sev, m)
 }
 
 func contains(s []string, e string) bool {
@@ -109,10 +124,11 @@ func (rat *ChatRat) speechHandler() {
 		}
 		spoken := false
 		for !spoken {
+			rat.log(Debug, "Trying to generate speech for routine speech handler")
 			words := rat.graph.GenerateMarkovString()
 			spoken = rat.speak(words)
-			if spoken && rat.ratSettings.VerboseLogging {
-				log.Println("Saying \"" + words + "\" from the routine speech handler")
+			if spoken {
+				rat.log(Info, "Saying \"" + words + "\" from the routine speech handler")
 			}
 		}
 	}
@@ -121,13 +137,13 @@ func (rat *ChatRat) speechHandler() {
 func (rat *ChatRat) writeText(text string) {
 	f, err := os.OpenFile(rat.ratSettings.ChatLog, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		log.Fatal(err)
+		rat.log(Critical, "Couldn't open chat log to write, " + err.Error())
 	}
 	if _, err := f.Write([]byte(text + "\n")); err != nil {
-		log.Fatal(err)
+		rat.log(Critical, "Couldn't write to chat log, " + err.Error())
 	}
 	if err := f.Close(); err != nil {
-		log.Fatal(err)
+		rat.log(Critical, "Couldn't close chat log, " + err.Error())
 	}
 }
 
