@@ -24,6 +24,7 @@ type ChatRat struct {
 	emoteSpamCooldown time.Duration
 
 	chatDelay chatDelay
+	logger RatLogger
 }
 
 type chatDelay struct {
@@ -40,25 +41,26 @@ func main() {
 	flag.Parse()
 	rat.ratSettings = *NewSettings(*settingsFile)
 	rat.graph = *markov.NewGraph(rat.ratSettings.ChatContextDepth)
+	rat.logger := NewLogger(rat.ratSettings.logType, rat.ratSettings.LogName, rat.RatSettings.logLevel)
+	go rat.logger.HandleLogs()
 
-	// rat timer settings
+	//Timer settings
 	rat.chatDelay.mu.RLock()
 	rat.chatDelay.duration = rat.ratSettings.chatDelay
 	rat.chatDelay.ticker = time.NewTicker(rat.chatDelay.duration)
 	rat.chatDelay.paused = false
 	rat.chatDelay.mu.RUnlock()
 
-	rat.emoteTimeout = 10 * time.Second
-	rat.emoteSpamCooldown = 1 * time.Minute
+	//Emote spam settings
+	rat.emoteTimeout = rat.ratSettings.emoteSpamTimeout
+	rat.emoteSpamCooldown = rat.ratSettings.emoteSpamCooldown
 	rat.emoteTimers = make([][]time.Time, len(rat.ratSettings.EmotesToSpam))
 	rat.emoteLastTime = make([]time.Time, len(rat.ratSettings.EmotesToSpam))
 
 	client := twitch.NewClient(rat.ratSettings.BotName, rat.ratSettings.Oauth)
 	rat.client = client
 	rat.client.OnPrivateMessage(func(message twitch.PrivateMessage) {
-		if message.User.Name != "chatrat_" {
-			rat.messageParser(message)
-		}
+		rat.messageParser(message)
 	})
 	//Loading the chat history to give the model something to go off of at the start.
 	rat.loadChatLog()
@@ -67,9 +69,8 @@ func main() {
 	defer client.Disconnect()
 	defer client.Depart(rat.ratSettings.StreamName)
 	rat.speak("Hi chat I'm back! =^.^=")
-	if rat.ratSettings.VerboseLogging {
-		log.Println("Chatrat starting in stream " + rat.ratSettings.StreamName + " running as " + rat.ratSettings.BotName)
-	}
+	rat.logger.log(Info, "Chatrat starting in stream " + rat.ratSettings.StreamName + " running as " + rat.ratSettings.BotName)
+
 	go rat.speechHandler()
 	err := client.Connect()
 
