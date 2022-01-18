@@ -9,7 +9,7 @@ import (
 type LogType uint8
 const (
 	Console LogType = 1 << iota
-	File //Any IO writer. Basically just uses a non-default logger. 
+	File //Could be any IO writer. Basically just uses a non-default logger. But during new it assumes it's a file.
 )
 
 type LogSeverity int
@@ -41,14 +41,14 @@ func NewLogger(logtype LogType, filename string, logLevel LogSeverity) *RatLogge
 	l.filename = filename
 	l.logLevel = logLevel
 	
-	f, err := os.OpenFile(filename, os.O_RDWR | os.O_CREATE | os.O_APPEND, 0644)
-	if err != nil {
-	    log.Fatalf("error opening file: %v", err)
+	if l.loggerType&File > 0 {
+		f, err := os.OpenFile(filename, os.O_RDWR | os.O_CREATE | os.O_APPEND, 0644)
+		if err != nil {
+			log.Fatalf("error opening file: %v", err)
+		}
+		l.logger := log.New(f, "", Ldate | Ltime)
 	}
-	defer f.Close()
-
-	log.SetOutput(f)
-	log.Println("This is a test log entry")
+	
 	return &l
 }
 
@@ -84,7 +84,9 @@ func sevToStr(s LogSeverity) string {
 }
 
 func (l *RatLogger) Close() {
-	defer l.file.Close()
+	if l.loggerType&File > 0 {
+		l.file.Close()
+	}
 	close(l.LogChannel)
 }
 
