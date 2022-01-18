@@ -66,17 +66,17 @@ func (s *settings) loadSettings(filename string) {
 	s.settingsFileName = filename
 	
 	switch strings.ToLower(s.LogType) {
-	case "console": logType := Console
-	case "file": logType := File
-	case "both": logType := File|Console
-	default: logType := File&Console //No logger
+	case "console": s.logType := Console
+	case "file": s.logType := File
+	case "both": s.logType := File|Console
+	default: s.logType := File&Console //No logger
 	}
 	switch strings.ToLower(s.LogLevel) {
-	case "debug": logLevel := Debug
-	case "info": logLevel := Info
-	case "warning": logLevel := Warning
-	case "critical": logLevel := Critical
-	default: logLevel := Info
+	case "debug": s.logLevel := Debug
+	case "info": s.logLevel := Info
+	case "warning": s.logLevel := Warning
+	case "critical": s.logLevel := Critical
+	default: s.logLevel := Info
 	}
 	
 	//In twitch the usernames are all lowercase in the backend. If the settings file includes names with uppercase characters, turn them lower. 
