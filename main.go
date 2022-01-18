@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"strings"
@@ -67,9 +68,9 @@ func main() {
 		rat.messageParser(message)
 	})
 	//Loading the chat history to give the model something to go off of at the start.
-	rat.log(Debug, fmt.Sprintf("Starting loading chat log at %s", time.Now.String()))
+	rat.log(Debug, fmt.Sprintf("Starting loading chat log at %s", time.Now().String()))
 	rat.loadChatLog()
-	rat.log(Debug, fmt.Sprintf("Finished loading chat log at %s", time.Now.String()))
+	rat.log(Debug, fmt.Sprintf("Finished loading chat log at %s", time.Now().String()))
 
 	client.Join(rat.ratSettings.StreamName)
 	defer client.Disconnect()
