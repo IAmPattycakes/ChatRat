@@ -12,24 +12,24 @@ import (
 )
 
 func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
+	//If the user is ignored then just don't listen. Unless they're the streamer, then listen regardless. 
+	if rat.isUserIgnored(message.User.Name) && !strings.EqualFold(message.User.Name, rat.ratSettings.StreamName) {
+		return
+	}
+	
 	messageStrings := strings.Split(message.Message, " ")
 
 	for i, v := range rat.ratSettings.EmotesToSpam {
 		if contains(messageStrings, v) {
+			rat.log(Debug, "Heard " + v + " for emote spamming")
 			rat.timerCleaner(i)
 			rat.emoteTimers[i] = append(rat.emoteTimers[i], time.Now())
 			if (len(rat.emoteTimers[i]) >= rat.ratSettings.EmoteSpamThreshold) && rat.emoteLastTime[i].Add(rat.emoteSpamCooldown).Before(time.Now()) {
 				rat.speak(v)
-				if rat.ratSettings.VerboseLogging {
-					log.Println("Triggered " + v + " emote spam")
-				}
+				rat.log(Info, "Triggered " + v + " emote spam")
 				rat.emoteLastTime[i] = time.Now()
 			}
 		}
-	}
-
-	if rat.isUserIgnored(message.User.Name) && !strings.EqualFold(message.User.Name, rat.ratSettings.StreamName) {
-		return
 	}
 
 	messageLength := len(messageStrings)
@@ -37,12 +37,10 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 	if messageLength <= 0 || messageStrings[0] != rat.ratSettings.CommandStarter {
 		rat.writeText(message.Message)
 		loaded, badword := rat.LoadPhrase(message.Message)
-		if rat.ratSettings.VerboseLogging {
-			if loaded {
-				log.Println("Heard \"" + message.Message + "\" and added it to the model")
-			} else {
-				log.Println("Heard \"" + message.Message + "\" and didn't add it to the model because I saw \"" + badword + "\"")
-			}
+		if loaded {
+			rat.log(Info, "Heard \"" + message.Message + "\" and added it to the model")
+		} else {
+			rat.log(Info, "Heard \"" + message.Message + "\" and didn't add it to the model because I saw \"" + badword + "\"")
 		}
 		return
 	}
@@ -52,7 +50,8 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 	}
 
 	if !rat.isUserTrusted(message.User.Name) && !strings.EqualFold(message.User.Name, rat.ratSettings.StreamName) {
-		rat.speak("Hi I'm ChatRat, I only let trusted people tell me what to do, but I guess you can say my name if you like =^.^=")
+		rat.speak("Hi "+message.User.DisplayName+", I only let trusted people tell me what to do, but I guess you can say my name if you like =^.^=")
+		rat.log(Info, "Heard command from "+message.User.Name+" but they're not trusted")
 		return
 	}
 
@@ -72,7 +71,7 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 				rat.speak(err.Error())
 			}
 			rat.chatDelay.mu.RLock()
-			log.Printf("chat delay duration updating from [%s] to [%s]", rat.chatDelay.duration, dur)
+			rat.log(Info, fmt.Sprintf("chat delay duration updating from [%s] to [%s]", rat.chatDelay.duration, dur))
 			rat.chatDelay.ticker.Stop()
 			rat.chatDelay.duration = dur
 			rat.chatDelay.ticker.Reset(dur)
@@ -86,17 +85,19 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 			}
 			num, err := strconv.ParseInt(messageStrings[3], 10, 0)
 			if err != nil {
-				log.Println("Couldn't read the context depth given. command was \"" + message.Message + "\" error given: " + err.Error())
+				rat.log(Warning, "Couldn't read the context depth given. command was \"" + message.Message + "\" error given: " + err.Error())
 				return
 			}
 			if num < 0 {
 				rat.speak("I can't have less than 0 context")
 				return
 			}
+			rat.log(Debug, fmt.Sprintf("Starting to reload context depth to %d at %s", num, time.Now().String()))
 			rat.speak("@" + message.User.Name + " I'm re-learning what to say, this may take a bit...")
 			rat.reloadGraph(int(num))
 			rat.speak("Okay, I know how to talk again.")
 			rat.ratSettings.ChatContextDepth = int(num)
+			rat.log(Debug, "Finished reloading context depth at " + time.Now().String())
 			rat.ratSettings.saveSettings()
 		case "emoteSpamThreshold":
 			if messageLength <= 3 {
@@ -105,14 +106,16 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 			}
 			num, err := strconv.ParseInt(messageStrings[3], 10, 0)
 			if err != nil {
-				log.Println("Couldn't read the emote spam threshold given. command was \"" + message.Message + "\" error given: " + err.Error())
+				rat.log(Warning, "Couldn't read the emote spam threshold given. command was \"" + message.Message + "\" error given: " + err.Error())
 				return
 			}
 			if num < 0 {
+				rat.log(Warning, "Emote spam threshold set to 0, may cause excessive spamming")
 				rat.speak("I will respond after every emote sent I guess")
 			}
 			rat.ratSettings.EmoteSpamThreshold = int(num)
 			rat.speak(fmt.Sprintf("I'll join in saying emotes I know after %d people have said them in %s", num, rat.ratSettings.emoteSpamTimeout.String()))
+			rat.log(Info, "Emote spam threshold set to " + num)
 			rat.ratSettings.saveSettings()
 		case "emoteSpamTimeout":
 			dur, err := durationParse(messageStrings[3:])
@@ -120,6 +123,7 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 				rat.speak(err.Error())
 			}
 			rat.speak(fmt.Sprintf("emote spam timeout changed from [%s] to [%s]", rat.ratSettings.emoteSpamTimeout, dur.String()))
+			rat.log(Info, "Emote spam timeout set to " + dur.String())
 			rat.ratSettings.emoteSpamTimeout = dur
 			rat.ratSettings.EmoteSpamTimeout = dur.String()
 			rat.ratSettings.saveSettings()
@@ -129,6 +133,7 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 				rat.speak(err.Error())
 			}
 			rat.speak(fmt.Sprintf("emote spam cooldown changed from [%s] to [%s]", rat.ratSettings.emoteSpamTimeout, dur.String()))
+			rat.log(Info, "Emote spam cooldown set to " + dur.String())
 			rat.ratSettings.emoteSpamCooldown = dur
 			rat.ratSettings.EmoteSpamCooldown = dur.String()
 			rat.ratSettings.saveSettings()
@@ -141,9 +146,7 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 		rat.chatDelay.mu.RUnlock()
 
 		rat.speak("Alright, I'll stop talking for now")
-		if rat.ratSettings.VerboseLogging {
-			log.Println("Chatrat was stopped by " + message.User.DisplayName)
-		}
+		rat.log(Warning, "Chatrat was stopped by " + message.User.DisplayName)
 	case "start":
 		rat.chatDelay.mu.RLock()
 		rat.chatDelay.ticker.Reset(rat.chatDelay.duration)
@@ -151,16 +154,13 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 		rat.chatDelay.mu.RUnlock()
 
 		rat.speak("Yay I get to talk again!")
-		if rat.ratSettings.VerboseLogging {
-			log.Println("Chatrat was stopped by " + message.User.DisplayName)
-		}
+		
+		rat.log(Warning, "Chatrat was started by " + message.User.DisplayName)
 	case "ignore":
 		if messageLength > 2 {
 			rat.speak("Sorry @" + messageStrings[2] + ", I can't talk to you anymore")
 			rat.ratSettings.ignoreUser(messageStrings[2])
-			if rat.ratSettings.VerboseLogging {
-				log.Println(message.User.DisplayName + " ignored " + messageStrings[2])
-			}
+			rat.log(Warning, message.User.DisplayName + " ignored " + messageStrings[2])
 			return
 		}
 
@@ -172,9 +172,7 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 		unignored := rat.ratSettings.unignoreUser(messageStrings[2])
 		if unignored {
 			rat.speak("Okay, I'll listen to what @" + messageStrings[2] + " has to say again.")
-			if rat.ratSettings.VerboseLogging {
-				log.Println(message.User.DisplayName + " unignored " + messageStrings[2])
-			}
+			rat.log(Warning, message.User.DisplayName + " unignored " + messageStrings[2])
 		} else {
 			rat.speak("@" + message.User.Name + ", " + messageStrings[2] + " wasn't ignored before.")
 		}
@@ -182,9 +180,7 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 		if messageLength > 2 {
 			rat.speak("Okay @" + messageStrings[2] + ", I'll let you tell me things to do")
 			rat.ratSettings.trustUser(messageStrings[2])
-			if rat.ratSettings.VerboseLogging {
-				log.Println(message.User.DisplayName + " trusted " + messageStrings[2])
-			}
+			rat.log(Warning, message.User.DisplayName + " trusted " + messageStrings[2])
 			return
 		}
 		rat.speak("@" + message.User.Name + " I didn't see a user to trust.")
@@ -195,13 +191,10 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 		untrusted := rat.ratSettings.untrustUser(messageStrings[2])
 		if untrusted {
 			rat.speak("Sorry @" + messageStrings[2] + ", I can't listen to commands from you anymore")
-			if rat.ratSettings.VerboseLogging {
-				log.Println(message.User.DisplayName + " untrusted " + messageStrings[2])
-			}
+			rat.log(Warning, message.User.DisplayName + " untrusted " + messageStrings[2])
 		} else {
 			rat.speak("@" + message.User.Name + ", " + messageStrings[2] + " wasn't trusted before.")
 		}
-		rat.speak("Sorry @" + messageStrings[2] + ", I can't listen to commands from you anymore")
 	case "speak":
 		words := rat.graph.GenerateMarkovString()
 		spoken := rat.speak(words)
@@ -209,16 +202,15 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 			words = rat.graph.GenerateMarkovString()
 			spoken = rat.speak(words)
 		}
-		if rat.ratSettings.VerboseLogging {
-			log.Println("Saying \"" + words + "\" after being told to speak")
-		}
+		rat.log(Info, "Saying \"" + words + "\" after being told to speak")
 	case "reloadBlacklist":
 		err := rat.ratSettings.reloadBlacklist()
 		if err != nil {
 			rat.speak("I couldn't understand the blacklist anymore")
-			log.Println(err)
+			rat.log(Warning, err.Error())
 			return
 		}
+		rat.log(Info, "Reloading blacklist at request of " + message.User.DisplayName)
 		rat.speak("I'm re-learning what to say while ignoring the new bad words. This may take a bit.")
 		rat.reloadGraph(rat.ratSettings.ChatContextDepth)
 		rat.speak("Okay, I know how to talk now.")
@@ -232,7 +224,7 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 		}
 		rat.ratSettings.saveSettings()
 		rat.speak("I will now spam " + messageStrings[2] + " with the crowd.")
-		log.Println(message.User.Name + " requested spamming of " + messageStrings[2] + " with the crowd")
+		rat.log(Info, message.User.Name + " requested spamming of " + messageStrings[2] + " with the crowd")
 	case "dontspam", "dontSpam", "stopSpamming", "stopspamming":
 		emotestospam := make([]string, 0)
 		emotetimers := make([][]time.Time, 0)
@@ -251,7 +243,7 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 		rat.ratSettings.EmotesToSpam = emotestospam
 		rat.ratSettings.saveSettings()
 		rat.speak("Okay, I'll stop spamming " + messageStrings[2] + " with the crowd.")
-		log.Println(message.User.Name + " requested stopping spamming of " + messageStrings[2])
+		rat.log(Info, message.User.Name + " requested stopping spamming of " + messageStrings[2])
 	default:
 		rat.speak("@" + message.User.Name + " I couldn't understand you, I only saw you say \"" + rat.ratSettings.CommandStarter + "\" before I got confused.")
 	}
