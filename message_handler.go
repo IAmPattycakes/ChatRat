@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -115,7 +114,7 @@ func (rat *ChatRat) messageParser(message twitch.PrivateMessage) {
 			}
 			rat.ratSettings.EmoteSpamThreshold = int(num)
 			rat.speak(fmt.Sprintf("I'll join in saying emotes I know after %d people have said them in %s", num, rat.ratSettings.emoteSpamTimeout.String()))
-			rat.log(Info, "Emote spam threshold set to " + num)
+			rat.log(Info, "Emote spam threshold set to " + messageStrings[3])
 			rat.ratSettings.saveSettings()
 		case "emoteSpamTimeout":
 			dur, err := durationParse(messageStrings[3:])
