@@ -25,7 +25,7 @@ type ChatRat struct {
 	emoteSpamCooldown time.Duration
 
 	chatDelay chatDelay
-	logger RatLogger
+	logger    RatLogger
 }
 
 type chatDelay struct {
@@ -76,7 +76,7 @@ func main() {
 	defer client.Disconnect()
 	defer client.Depart(rat.ratSettings.StreamName)
 	rat.speak("Hi chat I'm back! =^.^=")
-	rat.logger.Log(Info, "Chatrat starting in stream " + rat.ratSettings.StreamName + " running as " + rat.ratSettings.BotName)
+	rat.logger.Log(Info, "Chatrat starting in stream "+rat.ratSettings.StreamName+" running as "+rat.ratSettings.BotName)
 
 	go rat.speechHandler()
 	err := client.Connect()
@@ -128,7 +128,7 @@ func (rat *ChatRat) speechHandler() {
 			words := rat.graph.GenerateMarkovString()
 			spoken = rat.speak(words)
 			if spoken {
-				rat.log(Info, "Saying \"" + words + "\" from the routine speech handler")
+				rat.log(Info, "Saying \""+words+"\" from the routine speech handler")
 			}
 		}
 	}
@@ -137,13 +137,13 @@ func (rat *ChatRat) speechHandler() {
 func (rat *ChatRat) writeText(text string) {
 	f, err := os.OpenFile(rat.ratSettings.ChatLog, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		rat.log(Critical, "Couldn't open chat log to write, " + err.Error())
+		rat.log(Critical, "Couldn't open chat log to write, "+err.Error())
 	}
 	if _, err := f.Write([]byte(text + "\n")); err != nil {
-		rat.log(Critical, "Couldn't write to chat log, " + err.Error())
+		rat.log(Critical, "Couldn't write to chat log, "+err.Error())
 	}
 	if err := f.Close(); err != nil {
-		rat.log(Critical, "Couldn't close chat log, " + err.Error())
+		rat.log(Critical, "Couldn't close chat log, "+err.Error())
 	}
 }
 
