@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -86,7 +87,7 @@ func main() {
 	}
 }
 
-//speak checks to see if the message given is able to be said in chat, says it, and returns true if it can. Returns false if it can't.
+// speak checks to see if the message given is able to be said in chat, says it, and returns true if it can. Returns false if it can't.
 func (rat *ChatRat) speak(message string) bool {
 	if len(message) > 512 {
 		rat.log(Debug, fmt.Sprintf("Failed to speak message: %s, too long", message))
@@ -191,6 +192,15 @@ func (rat *ChatRat) reloadGraph(depth int) {
 func (rat *ChatRat) LoadPhrase(s string) (bool, string) {
 	for _, v := range rat.ratSettings.blacklist {
 		if strings.Contains(strings.ToLower(s), strings.ToLower(v)) {
+			return false, v
+		}
+	}
+	for _, v := range rat.ratSettings.blacklist {
+		match, err := regexp.Match(v, []byte(s))
+		if err != nil {
+			fmt.Println("Error in regex matching: ", err)
+		}
+		if match {
 			return false, v
 		}
 	}

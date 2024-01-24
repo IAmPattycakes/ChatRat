@@ -3,5 +3,8 @@
         "blacklistword1",
         "blacklistword2",
         "blacklistword3"
+    ],
+    "regexBlacklist":[
+        "^!(?!chatrat).*"
     ]
 }
